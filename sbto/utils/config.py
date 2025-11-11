@@ -7,6 +7,7 @@ import numpy as np
 @dataclass
 class ConfigAbstract:
     _filename: str = field(init=False, repr=False)
+    class_path: str = field(init=False, repr=False)
 
     @abstractmethod
     def save(self, dir_path: str):
@@ -16,10 +17,14 @@ class ConfigAbstract:
     @abstractmethod
     def load(cls, path: str):
         pass
-
+    
     @property
     def args(self):
-        return {k: v for k, v in asdict(self).items() if not k.startswith("_")}
+        # Use __dict__ instead of asdict(), so we include dynamically added fields
+        return {
+            k: v for k, v in self.__dict__.items()
+            if not k.startswith("_")  # skip private attributes
+        }
     
     def set_filename(self, filename: str) -> None:
         self._filename = filename
@@ -29,6 +34,7 @@ class ConfigBase(ConfigAbstract):
 
     def __post_init__(self):
         self._filename = "config"
+        self.class_path = ""
 
     def save(self, dir_path: str):
         """Implements saving to YAML."""
@@ -49,7 +55,16 @@ class ConfigBase(ConfigAbstract):
     
     @property
     def args(self):
-        return {k: v for k, v in asdict(self).items() if not k.startswith("_")}
+        return {
+            k: v for k, v in self.__dict__.items()
+        }
+    
+    @classmethod
+    def from_dict(cls, **kwargs):
+        c = cls()
+        for k, v in kwargs.items():
+            setattr(c, k, v)
+        return c
     
 @dataclass
 class ConfigNPZBase(ConfigAbstract):
@@ -82,5 +97,7 @@ class ConfigNPZBase(ConfigAbstract):
 
     @property
     def args(self):
-        """Return a dictionary of configuration fields, excluding private ones."""
-        return {k: v for k, v in asdict(self).items() if not k.startswith("_")}
+        return {
+            k: v for k, v in self.__dict__.items()
+            if not k.startswith("_")
+        }

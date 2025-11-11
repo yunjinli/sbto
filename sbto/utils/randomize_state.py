@@ -7,6 +7,7 @@ def randomize_joint_pos(
     x_0: np.ndarray,
     scale_q: Union[np.ndarray, float] = 0.1,
     scale_v: Union[np.ndarray, float] = 0.1,
+    is_floating_base: bool = False,
 ) -> np.ndarray:
     """
     Randomizes joint positions and velocities around a nominal state x_0.
@@ -17,6 +18,7 @@ def randomize_joint_pos(
         x_0: (nq + nv,) base state [q, v].
         scale_q: Position noise scale (float or array of shape (nq,)).
         scale_v: Velocity noise scale (float or array of shape (nv,)).
+        is_floating_base: bool
 
     Returns:
         x_rand: (N, nq + nv) array of randomized states.
@@ -38,6 +40,10 @@ def randomize_joint_pos(
     # Add Gaussian noise
     q += np.random.randn(N, nq) * scale_q
     v += np.random.randn(N, nv) * scale_v
+
+    # Normalize quaternion if floating base
+    if is_floating_base:
+        normalize_quat(q, slice(3, 7))
 
     # Combine back
     x_rand = np.concatenate([q, v], axis=-1)

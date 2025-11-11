@@ -1,6 +1,8 @@
 test/
 plots/
 runs/
+datasets/
+outputs/
 MUJOCO_LOG.TXT
 
 # Byte-compiled / optimized / DLL files

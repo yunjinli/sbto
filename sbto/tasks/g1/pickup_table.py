@@ -1,61 +1,14 @@
-import os
 import numpy as np
-from sbto.mj.nlp_mj import NLP_MuJoCo
-import sbto.tasks.unitree_g1.g1_constants as G1
-from sbto.mj.nlp_mj import ConfigTask, dataclass, ConfigScene
+from dataclasses import dataclass
+
+import sbto.tasks.g1.constants as G1
+from sbto.sim.sim_mj_rollout import SimMjRollout
+from sbto.tasks.task_mj import  TaskMj
 from sbto.utils.cost import quadratic_cost_nb, quaternion_dist_nb, hamming_dist_nb
 
 
 @dataclass
-class SceneG1ObjPickupFloor(ConfigScene):
-    xml_path: str = "sbto/models/unitree_g1/scene_mjx_25dof_no_hands.xml"
-    keyframe: str = "knees_bent_wrist_yaw_90deg"
-    # --- Additional xml files ---
-    sensor_file: str = "sbto/models/unitree_g1/sensors/with_obj.xml"
-    contact_pair_file: str = "sbto/models/unitree_g1/contact_pairs/with_obj.xml"
-    keyframes_file: str = "sbto/models/unitree_g1/keyframes/g1_25dof.xml"
-    # --- Randomize initial state ---
-    scale_q: float = 0.05
-    scale_v: float = 0.1
-    upper_body_scale: float = 4.
-    obj_x_range: tuple = (-0.01, 0.08)
-    obj_y_range: tuple = (-0.04, 0.04)
-    obj_w_range: tuple = (0.5, 0.5)
-
-    body = {
-        "obj": {
-            "type":         "box",
-            "pos":          (0.35, 0., 0.715),
-            "size":         (0.1, 0.1, 0.115),
-            "mass":         0.6,
-            "euler":        (0., 0., 0.),
-            "rgba":         (0.3, 0.3, 0.3, 1.),
-            "group":        1,
-            "freejoint":    True,
-            "priority":     0,
-            "condim":       3,
-            "contype":      0,
-            "conaffinity":  1,
-            "solref":       (0.008, 1.),
-            "friction":     (0.6, 0.003, 0.001),
-        },
-        "table": {
-            "type":         "box",
-            "pos":          (0.5, 0., 0.595),
-            "size":         (0.25, 0.4, 0.005),
-            "euler":        (0., 0., 0.),
-            "rgba":         (0.8, 0.8, 0.8, 1.),
-            "group":        1,
-            "bodyname":     "static"
-        },
-    }
-
-
-@dataclass
-class ConfigG1ObjPickupTable(ConfigTask):
-    # Scene
-    xml_path: str = "./sbto/models/unitree_g1/scene_mjx_25dof_no_hands.xml"
-
+class ConfigG1PickupTable():
     # --- State costs ---
     joint_pos_weight: float = 0.1
     joint_pos_weight_terminal: float = 0.
@@ -108,32 +61,31 @@ class ConfigG1ObjPickupTable(ConfigTask):
     u_weight_upperbody_scale: float = 0.1
     u_torques: float = 1.0e-5
 
-class G1_ObjPickupTable(NLP_MuJoCo):
+class G1PickupTable(TaskMj):
 
-    def __init__(self, cfg: ConfigG1ObjPickupTable):
-        super().__init__(cfg)
-        self.cfg_scene = SceneG1ObjPickupFloor()
-        self.edit.add_keyframes_from_file(self.cfg_scene.keyframes_file)
-        self.edit.add_cnt_pairs_from_file(self.cfg_scene.contact_pair_file)
-        self.edit.add_sensors_from_file(self.cfg_scene.sensor_file)
-        self.add_scene_body(self.cfg_scene)
+    def __init__(
+        self,
+        sim: SimMjRollout,
+        cfg: ConfigG1PickupTable
+        ):
+        super().__init__(sim)
+        Nu = sim.mj_scene.Nu
+        dt = sim.mj_scene.dt
+        T = sim.T
 
-        # --- Initial state setup ---
-        self.set_initial_state_from_keyframe(self.cfg_scene.keyframe)
-
-        self.q_min = np.array(G1._25DoF_Obj.RESTRICTED_JOINT_RANGE)[:, 0]
-        self.q_max = np.array(G1._25DoF_Obj.RESTRICTED_JOINT_RANGE)[:, 1]
-        self.q_nom = self.x_0[self.act_qposadr]
-        self.set_scaling(cfg)
+        sim.set_act_limits(
+            np.array(G1._25DoF_Obj.RESTRICTED_JOINT_RANGE)[:, 0],
+            np.array(G1._25DoF_Obj.RESTRICTED_JOINT_RANGE)[:, 1],
+        )
 
         obj_position_0 = np.array(cfg.obj_init_pos)
         obj_position_goal = obj_position_0 + cfg.obj_delta_position
         # self.x_0[G1._25DoF_Obj.IDX_BOX_POS] = self.obj_position_0
         # self.set_initial_state(self.x_0)
-        node_impact = int(cfg.reaching_cnt_time // self.dt)
-        obj_position_ref = np.zeros((self.T, 3))
+        node_impact = int(cfg.reaching_cnt_time // dt)
+        obj_position_ref = np.zeros((T, 3))
         obj_position_ref += obj_position_0
-        t_ = np.arange(self.T - node_impact) * self.dt
+        t_ = np.arange(T - node_impact) * dt
         dir = obj_position_goal - obj_position_0
         obj_position_ref[node_impact:, :] += dir[None, ] * t_[:, None]
 
@@ -221,13 +173,13 @@ class G1_ObjPickupTable(NLP_MuJoCo):
         )
 
         # --- Contact plan hands ---
-        self.set_contact_sensor_id(G1.Sensors.HAND_CONTACTS, G1.Sensors.cnt_status_hand_id) # For plotting
-        self.contact_plan = np.zeros((self.T, G1.N_HANDS), dtype=np.uint8)
+        self.set_contact_sensor_id(G1.Sensors.HAND_CONTACTS, G1.Sensors.id_cnt_status_hands) # For plotting
+        self.contact_plan = np.zeros((T, G1.N_HANDS), dtype=np.uint8)
         self.contact_plan[node_impact:] = 1.
         self.add_sensor_cost(
             G1.Sensors.HAND_CONTACTS,
             hamming_dist_nb,
-            sub_idx_sensor=G1.Sensors.cnt_status_hand_id,
+            sub_idx_sensor=G1.Sensors.id_cnt_status_hands,
             ref_values=self.contact_plan[:-1],
             ref_values_terminal=self.contact_plan[-1:],
             weights=cfg.contact_hands_weight,
@@ -235,16 +187,16 @@ class G1_ObjPickupTable(NLP_MuJoCo):
         self.add_sensor_cost(
             G1.Sensors.HAND_CONTACTS,
             quadratic_cost_nb,
-            sub_idx_sensor=G1.Sensors.cnt_force_hand_id,
+            sub_idx_sensor=G1.Sensors.id_cnt_force_hands,
             weights=cfg.contact_force_obj_weight,
         )
 
         # --- Contact plan feet ---
-        self.contact_plan_feet = np.full((self.T, G1.N_FEET * G1.cnt_sensor_per_foot), 1, dtype=np.uint8) # feet always in contact
+        self.contact_plan_feet = np.full((T, G1.N_FEET * G1._cnt_sens_per_foot), 1, dtype=np.uint8) # feet always in contact
         self.add_sensor_cost(
             G1.Sensors.FEET_CONTACTS,
             hamming_dist_nb,
-            sub_idx_sensor=G1.Sensors.cnt_status_feet_id,
+            sub_idx_sensor=G1.Sensors.id_cnt_status_feet,
             ref_values=self.contact_plan_feet[:-1],
             ref_values_terminal=self.contact_plan_feet[-1:],
             weights=cfg.contact_feet_weight,
@@ -252,14 +204,14 @@ class G1_ObjPickupTable(NLP_MuJoCo):
         self.add_sensor_cost(
             G1.Sensors.FEET_CONTACTS,
             quadratic_cost_nb,
-            sub_idx_sensor=G1.Sensors.cnt_force_feet_id,
+            sub_idx_sensor=G1.Sensors.id_cnt_force_feet,
             weights=cfg.contact_force_feet_weight,
         )
 
 
         # --- Contact obj table ---
-        self.contact_plan_obj = np.full((self.T, 1), 1, dtype=np.uint8) # feet always in contact
-        node_lift_obj = node_impact + int(cfg.delay_lift // self.dt)
+        self.contact_plan_obj = np.full((T, 1), 1, dtype=np.uint8) # feet always in contact
+        node_lift_obj = node_impact + int(cfg.delay_lift // dt)
         self.contact_plan_obj[node_lift_obj:, :] = 0
 
         self.add_sensor_cost(
@@ -271,25 +223,16 @@ class G1_ObjPickupTable(NLP_MuJoCo):
         )
 
         # --- Control cost ---
-        w_u_traj = np.full(self.Nu, cfg.u_weight_default)
+        w_u_traj = np.full(Nu, cfg.u_weight_default)
         w_u_traj[G1._25DoF_Obj.IDX_HIP_KNEE] *= cfg.u_weight_hip_knee_scale
-        w_u_traj[G1._25DoF_Obj.IDX_WAIST+1:] *= cfg.u_weight_upperbody_scale
+        w_u_traj[G1._25DoF_Obj.IDX_WAIST_YAW+1:] *= cfg.u_weight_upperbody_scale
         self.add_control_cost(
             "u_traj",
             quadratic_cost_nb,
-            idx=list(range(self.Nu)),
+            idx=list(range(Nu)),
             weights=w_u_traj,
         )
 
-    @staticmethod
-    def contact_cost(cnt_status_rollout, cnt_plan, weights) -> float:
-        cnt_status_rollout[cnt_status_rollout > 1] = 1
-        return np.sum(weights[None, ...] * np.float32(cnt_status_rollout != cnt_plan[None, ...]), axis=(-1, -2))
-
-    @staticmethod
-    def quat_dist(var, ref, weights) -> float:
-        return np.sum(weights[:, 0] * (1.0 - np.square(np.sum(var * ref[None, ...], axis=-1))), axis=(-1))
-    
     def are_initial_states_valid(self, states, obs):
         Z_MIN = 0.6
         QUAT_DIST_MAX = 0.4

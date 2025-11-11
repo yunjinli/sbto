@@ -1,49 +1,14 @@
-import os
 import numpy as np
-from sbto.mj.nlp_mj import NLP_MuJoCo
-import sbto.tasks.unitree_g1.g1_constants as G1
-from sbto.mj.nlp_mj import ConfigTask, ConfigScene, dataclass
+from dataclasses import dataclass
+
+import sbto.tasks.g1.constants as G1
+from sbto.sim.sim_mj_rollout import SimMjRollout
+from sbto.tasks.task_mj import  TaskMj
 from sbto.utils.cost import quadratic_cost_nb, quaternion_dist_nb, hamming_dist_nb
 
-@dataclass
-class SceneG1ObjPickupFloor(ConfigScene):
-    xml_path: str = "sbto/models/unitree_g1/scene_mjx_25dof_no_hands.xml"
-    keyframe: str = "knees_bent_wrist_yaw_90deg"
-    # --- Additional xml files ---
-    sensor_file: str = "sbto/models/unitree_g1/sensors/with_obj.xml"
-    contact_pair_file: str = "sbto/models/unitree_g1/contact_pairs/with_obj.xml"
-    keyframes_file: str = "sbto/models/unitree_g1/keyframes/g1_25dof.xml"
-    # --- Randomize initial state ---
-    scale_q: float = 0.05
-    scale_v: float = 0.1
-    upper_body_scale: float = 5.
-    obj_x_range: tuple = (-0.02, 0.03)
-    obj_y_range: tuple = (-0.015, 0.015)
-    obj_w_range: tuple = (-0.3, 0.3)
-    body = {
-        "obj": {
-            "type":         "box",
-            "pos":          (0.35, 0., 0.115),
-            "size":         (0.1, 0.1, 0.115),
-            "mass":         0.6,
-            "euler":        (0., 0., 0.),
-            "rgba":         (0.3, 0.3, 0.3, 1.),
-            "group":        1,
-            "freejoint":    True,
-            "priority":     0,
-            "condim":       3,
-            "contype":      0,
-            "conaffinity":  1,
-            "solref":       (0.008, 1.),
-            "friction":     (0.6, 0.003, 0.001),
-        },
-    }
 
 @dataclass
-class TaskG1ObjPickupFloor(ConfigTask):
-    # Scene file
-    xml_path: str = "sbto/models/unitree_g1/scene_mjx_25dof_no_hands.xml"
-
+class ConfigG1PickupFloor():
     # --- Timing ---
     squat_time: float = 1.     # seconds to reach squat pose
     pickup_time: float = 0.2   # seconds to reach the box after squatting
@@ -54,7 +19,7 @@ class TaskG1ObjPickupFloor(ConfigTask):
     obj_delta_position: tuple = (0., 0., 0.7)
 
     obj_pos_weight: float = 0.
-    obj_pos_weight_terminal: float = (10.0, 10.0, 10.0)
+    obj_pos_weight_terminal: tuple = (10.0, 10.0, 10.0)
     obj_quat_weight: float = 0.6
     obj_quat_weight_terminal: float = 0.6
 
@@ -85,41 +50,68 @@ class TaskG1ObjPickupFloor(ConfigTask):
 
     u_weight_default: float = 1e-4
 
+    _target_:str = "sbto.tasks.g1.g1_pickup_floor.G1PickupFloor"
 
-class G1_ObjPickupFloor(NLP_MuJoCo):
+class G1PickupFloor(TaskMj):
 
     def __init__(
         self,
-        cfg: TaskG1ObjPickupFloor,
+        sim: SimMjRollout,
+        cfg: ConfigG1PickupFloor
         ):
-        super().__init__(cfg)
-        self.cfg_scene = SceneG1ObjPickupFloor()
-        self.edit.add_keyframes_from_file(self.cfg_scene.keyframes_file)
-        self.edit.add_cnt_pairs_from_file(self.cfg_scene.contact_pair_file)
-        self.edit.add_sensors_from_file(self.cfg_scene.sensor_file)
-        self.add_scene_body(self.cfg_scene)
+        super().__init__(sim)
+        RESTRICTED_JOINT_RANGE = (
+            # Left leg.
+            (-2.57, 0.1),
+            (-0.5, 0.5),
+            (-0.5, 0.5),
+            (0, 2.57),
+            (-0.5, 0.7),
+            (-0.2, 0.2),
+            # Right leg.
+            (-2.57, 0.1),
+            (-0.5, 0.5),
+            (-0.5, 0.5),
+            (0, 2.57),
+            (-0.5, 0.7),
+            (-0.2, 0.2),
+            # Waist.
+            (-0.5, 0.5),
+            # Left shoulder.
+            (-1.57, 1.57),
+            (-0.2, 1.57),
+            (-1, 1),
+            (-1., 1.57),
+            (-1., 1.),
+            (-1.57, -1.57), # 0 range for the yaw wrists
+            # Right shoulder.
+            (-1.57, 1.57),
+            (-1.57, 0.2),
+            (-1, 1),
+            (-1., 1.57),
+            (-1., 1.),
+            (1.57, 1.57), # 0 range for the yaw wrists
+        )
 
-        # --- Initial state setup ---
-        self.set_initial_state_from_keyframe(self.cfg_scene.keyframe)
-
-        self.q_min = np.array(G1._25DoF_ObjFloor.RESTRICTED_JOINT_RANGE)[:, 0]
-        self.q_max = np.array(G1._25DoF_ObjFloor.RESTRICTED_JOINT_RANGE)[:, 1]
-        self.q_nom = self.x_0[self.act_qposadr]
-        self.set_scaling(cfg)
+        sim.set_act_limits(
+            np.array(RESTRICTED_JOINT_RANGE)[:, 0],
+            np.array(RESTRICTED_JOINT_RANGE)[:, 1],
+        )
 
         # Squat pose reference
-        stand_pose = self.mj_model.keyframe(self.cfg_scene.keyframe).qpos
-        squat_pose = self.mj_model.keyframe("knees_bent_pickup").qpos
-        lift_pose = self.mj_model.keyframe("home").qpos
+        stand_pose = sim.mj_scene.mj_model.keyframe(sim.cfg.keyframe_x0).qpos
+        squat_pose = sim.mj_scene.mj_model.keyframe("knees_bent_pickup").qpos
+        lift_pose = sim.mj_scene.mj_model.keyframe("home").qpos
 
         stand_joints = stand_pose[G1._25DoF_Obj.IDX_JOINT_POS]
         pickup_joints = squat_pose[G1._25DoF_Obj.IDX_JOINT_POS]
         lift_joints = lift_pose[G1._25DoF_Obj.IDX_JOINT_POS]
 
         # --- Time parameters ---
-        squat_node = int(cfg.squat_time / self.dt)
-        pickup_node = int((cfg.squat_time + cfg.pickup_time) / self.dt)
-        standup_node = int((cfg.squat_time + cfg.pickup_time + cfg.standup_time) / self.dt)
+        dt = sim.mj_scene.dt
+        squat_node = int(cfg.squat_time / dt)
+        pickup_node = int((cfg.squat_time + cfg.pickup_time) / dt)
+        standup_node = int((cfg.squat_time + cfg.pickup_time + cfg.standup_time) / dt)
 
         # Object goal
         obj_position_goal = np.asarray(cfg.obj_init_pos) + np.asarray(cfg.obj_delta_position)
@@ -161,14 +153,13 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
         )
 
         # --- Base height (smooth drop) ---
-        base_height_ref = np.tile(self.x_0[2], (self.T-1, ))
+        base_height_ref = np.tile(sim.x_0[2], (sim.T-1, ))
         # Squat
-        base_height_ref[:squat_node] = np.linspace(self.x_0[2], squat_pose[2], squat_node)
-        alpha = 1.
+        base_height_ref[:squat_node] = np.linspace(sim.x_0[2], squat_pose[2], squat_node)
         base_height_ref[squat_node:standup_node] = squat_pose[2] / 2.
         # Stand up
-        base_height_ref[standup_node:] = np.linspace(squat_pose[2], self.x_0[2], self.T-1-standup_node)
-        base_height_weight = np.full((self.T - 1, ), cfg.base_height_weight)
+        base_height_ref[standup_node:] = np.linspace(squat_pose[2], sim.x_0[2], sim.T-1-standup_node)
+        base_height_weight = np.full((sim.T - 1, ), cfg.base_height_weight)
         base_height_weight[squat_node:standup_node] = cfg.base_height_weight_terminal
         base_height_weight[standup_node] = cfg.base_height_weight_terminal
         self.add_state_cost(
@@ -206,7 +197,7 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
         self.add_sensor_cost(
             G1.Sensors.HAND_CONTACTS,
             hamming_dist_nb,
-            sub_idx_sensor=G1.Sensors.cnt_status_hand_id,
+            sub_idx_sensor=G1.Sensors.id_cnt_status_hands,
             ref_values=contact_plan_hands,
             weights=cfg.contact_hands_weight,
             weights_terminal=cfg.contact_hands_weight*50.,
@@ -214,7 +205,7 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
         self.add_sensor_cost(
             G1.Sensors.HAND_CONTACTS,
             quadratic_cost_nb,
-            sub_idx_sensor=G1.Sensors.cnt_force_hand_id,
+            sub_idx_sensor=G1.Sensors.id_cnt_force_hands,
             weights=cfg.contact_hands_force,
         )
 
@@ -231,11 +222,11 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
         )
 
         # --- Contact plan feet ---
-        contact_plan_feet = np.full((self.T-1, G1.N_FEET * G1.cnt_sensor_per_foot), 1, dtype=np.uint8) # feet always in contact
+        contact_plan_feet = np.full((self.T-1, G1.N_FEET * G1._cnt_sens_per_foot), 1, dtype=np.uint8) # feet always in contact
         self.add_sensor_cost(
             G1.Sensors.FEET_CONTACTS,
             hamming_dist_nb,
-            sub_idx_sensor=G1.Sensors.cnt_status_feet_id,
+            sub_idx_sensor=G1.Sensors.id_cnt_status_feet,
             ref_values=contact_plan_feet,
             weights=cfg.contact_feet_weight,
         )
@@ -251,7 +242,7 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
 
         # Setup contact_plan for plots
         cnt_sensors = G1.Sensors.HAND_CONTACTS + G1.Sensors.OBJ_FLOOR_CONTACT
-        sub_id_cnt_status = G1.Sensors.cnt_status_hand_id + [G1.Sensors.cnt_status_hand_id[-1] + 3 + 1]
+        sub_id_cnt_status = G1.Sensors.id_cnt_status_hands + [G1.Sensors.id_cnt_status_hands[-1] + 3 + 1]
         self.set_contact_sensor_id(cnt_sensors, sub_id_cnt_status) # For plotting
         self.contact_plan = np.concatenate(
             (contact_plan_hands, contact_plan_obj),
@@ -292,11 +283,11 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
         )
 
         # --- Control regularization ---
-        w_u_traj = np.full(self.Nu, cfg.u_weight_default)
+        w_u_traj = np.full(sim.mj_scene.Nu, cfg.u_weight_default)
         self.add_control_cost(
             "u_traj",
             quadratic_cost_nb,
-            idx=list(range(self.Nu)),
+            idx=list(range(sim.mj_scene.Nu)),
             weights=w_u_traj,
         )
 

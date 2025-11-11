@@ -22,6 +22,8 @@ def visualize_trajectory(
     - Right arrow: step forward
     - Left arrow: step backward
     """
+    t = np.squeeze(t)
+    x_traj = np.squeeze(x_traj)
     T = len(x_traj)
     PAUSE_LOOP = 0.5
     dt_array = np.diff(t, append=0.)

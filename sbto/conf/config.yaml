@@ -1,0 +1,7 @@
+defaults:
+  - task: g1/gait
+  - solver: cem
+  - _self_
+
+description: ""
+save_fig: true

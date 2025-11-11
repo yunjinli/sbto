@@ -2,7 +2,6 @@ import mujoco
 import numpy as np
 from typing import List, Dict, Optional, Callable, Any
 from functools import wraps
-import copy
 
 class ModelEditor():
     DEFAULT_NAME = "static"
@@ -14,7 +13,7 @@ class ModelEditor():
         self.reset()
 
     @staticmethod
-    def _callback():
+    def with_callback():
         """
         Call callback_fn to update variables depending on mj_model.
         """
@@ -48,7 +47,7 @@ class ModelEditor():
                 except Exception as e:
                     continue
 
-    @_callback()
+    @with_callback()
     def _add_body_and_geom(
         self,
         geom_type,
@@ -93,7 +92,7 @@ class ModelEditor():
             **kwargs,
         )
     
-    @_callback()
+    @with_callback()
     def _add_geom_to_body(
         self,
         body,
@@ -225,7 +224,7 @@ class ModelEditor():
         
         return None
     
-    @_callback()
+    @with_callback()
     def remove(
         self, 
         name: Optional[str] = None, 
@@ -245,7 +244,7 @@ class ModelEditor():
         
         self.callback_fn()
 
-    @_callback()
+    @with_callback()
     def move(
         self, 
         new_pos: np.ndarray, 
@@ -261,7 +260,7 @@ class ModelEditor():
                 if new_euler is not None:
                     geom.quat = self._to_quat(new_euler)
 
-    @_callback()
+    @with_callback()
     def set_color(self,
                   rgba : np.ndarray, 
                   name : Optional[str] = None, 
@@ -271,6 +270,7 @@ class ModelEditor():
             geom = body.first_geom()
             geom.rgba = rgba
 
+    @with_callback()
     def add_contact_pair(
         self,
         geom1: str,
@@ -289,6 +289,7 @@ class ModelEditor():
 
         return name
 
+    @with_callback()
     def add_contact_sensor(
         self,
         geom1: str,
@@ -316,6 +317,7 @@ class ModelEditor():
 
         return name
 
+    @with_callback()
     def add_sensors_from_file(
         self,
         file_path: str,
@@ -325,6 +327,7 @@ class ModelEditor():
             sensor_dst = self.mj_spec.add_sensor()
             self._copy_attr_obj(sensor_src, sensor_dst)
 
+    @with_callback()
     def add_keyframes_from_file(
         self,
         file_path: str,
@@ -334,6 +337,7 @@ class ModelEditor():
             key_dst = self.mj_spec.add_key()
             self._copy_attr_obj(key_src, key_dst)
 
+    @with_callback()
     def add_cnt_pairs_from_file(
         self,
         file_path: str,
@@ -343,6 +347,7 @@ class ModelEditor():
             pair_dst = self.mj_spec.add_pair()
             self._copy_attr_obj(pair_src, pair_dst)
 
+    @with_callback()
     def reset(self):
         self.mj_spec = mujoco.MjSpec.from_file(self.xml_path)
         self.id : int = len(self.mj_spec.bodies)
