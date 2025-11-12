@@ -5,7 +5,7 @@ from typing import Any, Tuple, Callable, Optional
 from scipy.interpolate import interp1d
 from functools import partial
 
-from sbto.utils.scaling import AVAILABLE_SCALING
+from sbto.sim.action_scaling import AVAILABLE_SCALING
 
 Array = npt.NDArray[np.float64]
 

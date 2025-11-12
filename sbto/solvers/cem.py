@@ -2,7 +2,6 @@ import numpy as np
 import numpy.typing as npt
 from typing import Tuple
 from dataclasses import dataclass
-import hydra
 
 from sbto.solvers.solver_base import SamplingBasedSolver, SolverState, ConfigSolver
 

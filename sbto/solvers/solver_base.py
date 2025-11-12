@@ -5,13 +5,12 @@ from abc import ABC, abstractmethod
 from typing import Any
 import copy
 
-from sbto.utils.config import ConfigBase, ConfigNPZBase
 from sbto.solvers.sampler import SamplerAbstract, AVAILABLE_SAMPLERS
 
 Array = npt.NDArray[np.float64]
 
 @dataclass
-class SolverState(ConfigNPZBase):
+class SolverState():
     """
     State parameters for the solver.
     Default:
@@ -27,9 +26,6 @@ class SolverState(ConfigNPZBase):
     min_cost: float
     min_cost_all: float
 
-    def __post_init__(self):
-        self._filename = "solver_state.npz"
-
 @dataclass
 class ConfigSolver():
     N_samples: int = 1024
@@ -38,9 +34,6 @@ class ConfigSolver():
     N_it: int = 100
     sigma0: float = 0.2
     sampler: str = "normal"
-
-    # def __post_init__(self):
-    #     self._filename = "config_solver.yaml"
 
 class SamplingBasedSolver(ABC):
     """
@@ -104,7 +97,7 @@ class SamplingBasedSolver(ABC):
         Get samples from distribution parametrized
         by the current state.
         """
-        return self.sampler.sample(**self.state.args)
+        return self.sampler.sample(**asdict(self.state))
         
     @abstractmethod
     def update(self,

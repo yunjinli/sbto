@@ -3,12 +3,11 @@ import numpy.typing as npt
 from mujoco import rollout
 from typing import Tuple
 import copy
+from dataclasses import dataclass
 from multiprocessing import cpu_count
-from hydra.core.config_store import ConfigStore
 
 from sbto.sim.sim_base import SimRolloutBase, Array
 from sbto.sim.scene_mj import MjScene
-from sbto.utils.config import ConfigBase, dataclass
 
 IntArray = npt.NDArray[np.int64]
 

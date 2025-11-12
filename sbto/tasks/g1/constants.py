@@ -1,4 +1,3 @@
-from typing import List
 
 N_FEET = 2
 N_HANDS = 2

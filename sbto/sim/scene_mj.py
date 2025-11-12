@@ -6,10 +6,12 @@ from typing import Tuple, List, Dict, Any
 from dataclasses import dataclass, field
 
 from sbto.sim.sim_base import Array
-from sbto.utils.config import ConfigBase, dataclass
 from sbto.sim.model_editor import ModelEditor
 
 IntArray = npt.NDArray[np.int64]
+
+MJ_JNT_FREE = 0
+FREE_JOINT_SIZE = 7
 
 @dataclass
 class ConfigMjScene():
@@ -139,7 +141,105 @@ class MjScene():
     @property
     def act_dofadr(self) -> Array:
         return self.mj_model.jnt_dofadr[self.act_joint_ids]
+    
+    @property
+    def act_pos_adr(self) -> Array:
+        return self.mj_model.jnt_qposadr[self.act_joint_ids]
 
+    @property
+    def act_vel_adr(self) -> Array:
+        return self.Nq + self.mj_model.jnt_dofadr[self.act_joint_ids]
+
+    @property
+    def base_joint_id(self) -> int:
+        """Return joint id of object free joint (if any)."""
+        MJ_JNT_FREE = 0
+        free_joints_id = np.where(self.mj_model.jnt_type == MJ_JNT_FREE)[0]
+        if len(free_joints_id) > 0:
+            return free_joints_id[0]
+        return None
+
+    @property
+    def base_pos_adr(self) -> np.ndarray:
+        """3D position of object."""
+        if self.base_joint_id is None:
+            return np.array([], dtype=int)
+        base = self.mj_model.jnt_qposadr[self.base_joint_id]
+        return np.arange(base, base + 3)
+
+    @property
+    def base_quat_adr(self) -> np.ndarray:
+        """Quaternion of object."""
+        if self.base_joint_id is None:
+            return np.array([], dtype=int)
+        base = self.mj_model.jnt_qposadr[self.base_joint_id]
+        return np.arange(base + 3, base + 7)
+
+    @property
+    def base_v_adr(self) -> np.ndarray:
+        """Linear velocity address of object in qvel."""
+        if self.base_joint_id is None:
+            return np.array([], dtype=int)
+        adr = self.Nq + self.mj_model.jnt_dofadr[self.base_joint_id]
+        return np.arange(adr, adr + 3)
+
+    @property
+    def base_w_adr(self) -> np.ndarray:
+        """Angular velocity address of object in qvel."""
+        if self.base_joint_id is None:
+            return np.array([], dtype=int)
+        adr = self.Nq + self.mj_model.jnt_dofadr[self.base_joint_id]
+        return np.arange(adr + 3, adr + 6)
+
+    @property
+    def obj_joint_id(self) -> int:
+        """Return joint id of object free joint (if any)."""
+        MJ_JNT_FREE = 0
+        free_joints_id = np.where(self.mj_model.jnt_type == MJ_JNT_FREE)[0]
+        if len(free_joints_id) > 1:
+            return free_joints_id[1]
+        return None
+    
+    @property
+    def obj_qpos_adr(self) -> List[int]:
+        """Return qpos address range for the object's free joint (7D: pos + quat)."""
+        if self.obj_joint_id is None:
+            return []
+        adr = self.mj_model.jnt_qposadr[self.obj_joint_id]
+        return list(range(adr, adr + 7))
+    
+    @property
+    def obj_pos_adr(self) -> np.ndarray:
+        """3D position of object."""
+        if self.obj_joint_id is None:
+            return np.array([], dtype=int)
+        base = self.mj_model.jnt_qposadr[self.obj_joint_id]
+        return np.arange(base, base + 3)
+
+    @property
+    def obj_quat_adr(self) -> np.ndarray:
+        """Quaternion of object."""
+        if self.obj_joint_id is None:
+            return np.array([], dtype=int)
+        base = self.mj_model.jnt_qposadr[self.obj_joint_id]
+        return np.arange(base + 3, base + 7)
+
+    @property
+    def obj_v_adr(self) -> np.ndarray:
+        """Linear velocity address of object in qvel."""
+        if self.obj_joint_id is None:
+            return np.array([], dtype=int)
+        adr = self.Nq + self.mj_model.jnt_dofadr[self.obj_joint_id]
+        return np.arange(adr, adr + 3)
+
+    @property
+    def obj_w_adr(self) -> np.ndarray:
+        """Angular velocity address of object in qvel."""
+        if self.obj_joint_id is None:
+            return np.array([], dtype=int)
+        adr = self.Nq + self.mj_model.jnt_dofadr[self.obj_joint_id]
+        return np.arange(adr + 3, adr + 6)
+    
     @property
     def is_floating_base(self) -> bool:
         return self.act_qposadr[0] > 0

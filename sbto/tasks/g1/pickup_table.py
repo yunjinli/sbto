@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import sbto.tasks.g1.constants as G1
 from sbto.sim.sim_mj_rollout import SimMjRollout
 from sbto.tasks.task_mj import  TaskMj
-from sbto.utils.cost import quadratic_cost_nb, quaternion_dist_nb, hamming_dist_nb
+from sbto.tasks.cost import quadratic_cost_nb, quaternion_dist_nb, hamming_dist_nb
 
 
 @dataclass
@@ -84,7 +84,7 @@ class G1PickupTable(TaskMj):
 
         obj_position_0 = np.array(cfg.obj_init_pos)
         obj_position_goal = obj_position_0 + cfg.obj_delta_position
-        # self.x_0[G1._25DoF_Obj.IDX_BOX_POS] = self.obj_position_0
+        # self.x_0[sim.mj_scene.obj_pos_adr] = self.obj_position_0
         # self.set_initial_state(self.x_0)
         node_impact = int(cfg.reaching_cnt_time // dt)
         obj_position_ref = np.zeros((T, 3))
@@ -97,7 +97,7 @@ class G1PickupTable(TaskMj):
         self.add_state_cost(
             "joint_pos",
             quadratic_cost_nb,
-            G1._25DoF_Obj.IDX_JOINT_POS,
+            sim.mj_scene.act_pos_adr,
             weights=cfg.joint_pos_weight,
             use_intial_as_ref=True,
             weights_terminal=cfg.joint_pos_weight_terminal,
@@ -113,7 +113,7 @@ class G1PickupTable(TaskMj):
         self.add_state_cost(
             "joint_vel",
             quadratic_cost_nb,
-            G1._25DoF_Obj.IDX_JOINT_VEL,
+            sim.mj_scene.act_vel_adr,
             weights=cfg.joint_vel_weight,
             weights_terminal=cfg.joint_vel_weight_terminal,
         )
@@ -147,7 +147,7 @@ class G1PickupTable(TaskMj):
         self.add_state_cost(
             "obj_position",
             quadratic_cost_nb,
-            G1._25DoF_Obj.IDX_BOX_POS,
+            sim.mj_scene.obj_pos_adr,
             weights=cfg.obj_pos_weight,
             weights_terminal=cfg.obj_pos_weight_terminal,
             ref_values_terminal=obj_position_goal,
@@ -156,7 +156,7 @@ class G1PickupTable(TaskMj):
         self.add_state_cost(
             "obj_quat",
             quaternion_dist_nb,
-            G1._25DoF_Obj.IDX_BOX_QUAT,
+            sim.mj_scene.obj_quat_adr,
             weights=cfg.obj_quat_weight,
             weights_terminal=cfg.obj_quat_weight_terminal,
             use_intial_as_ref=True
@@ -164,14 +164,14 @@ class G1PickupTable(TaskMj):
         self.add_state_cost(
             "obj_linvel",
             quadratic_cost_nb,
-            G1._25DoF_Obj.IDX_BOX_LINVEL,
+            sim.mj_scene.obj_v_adr,
             weights=cfg.obj_linvel_weight,
             weights_terminal=cfg.obj_linvel_weight_term,
         )
         self.add_state_cost(
             "obj_angvel",
             quadratic_cost_nb,
-            G1._25DoF_Obj.IDX_BOX_ANGVEL,
+            sim.mj_scene.obj_w_adr,
             weights=cfg.obj_angvel_weight,
             weights_terminal=cfg.obj_angvel_weight_term,
         )
@@ -267,7 +267,7 @@ class G1PickupTable(TaskMj):
         scale_v[-6:] = 0.
 
         scale_q[G1._25DoF_Obj.IDX_WAIST+7:] *= self.upper_body_scale
-        obj_qpos_id = G1._25DoF_Obj.IDX_BOX_POS + G1._25DoF_Obj.IDX_BOX_QUAT
+        obj_qpos_id = sim.mj_scene.obj_pos_adr + sim.mj_scene.obj_quat_adr
         scale_q[obj_qpos_id] = 0.
         scale_v[-6:] = 0.
 

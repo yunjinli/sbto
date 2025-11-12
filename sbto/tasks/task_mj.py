@@ -1,17 +1,10 @@
 import numpy as np
 import mujoco
 from typing import Tuple, Union, Optional, List
-from multiprocessing import cpu_count
 
 from sbto.sim.sim_mj_rollout import SimMjRollout
 from sbto.sim.scene_mj import MjScene
 from sbto.tasks.task_base import OCPBase, Array, CostFn, IntArray
-from sbto.utils.config import ConfigBase, dataclass
-
-@dataclass
-class ConfigTask(ConfigBase):
-    def __post_init__(self):
-        self._filename = "config_ocp_task.yaml"
 
 class TaskMj(OCPBase):
     def __init__(self, sim: SimMjRollout):

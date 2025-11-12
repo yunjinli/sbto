@@ -1,12 +1,11 @@
-import os
 import numpy as np
+from dataclasses import dataclass
+
 from sbto.sim.sim_mj_rollout import SimMjRollout
 import sbto.tasks.g1.constants as G1
 from sbto.utils.gait import GaitConfig, generate_contact_plan
-from sbto.tasks.task_mj import ConfigTask, dataclass, TaskMj
-from sbto.utils.cost import quadratic_cost_nb, quaternion_dist_nb, hamming_dist_nb
-from sbto.sim.scene_mj import ConfigMjScene
-from sbto.sim.sim_mj_rollout import ConfigMjRollout
+from sbto.tasks.task_mj import TaskMj
+from sbto.tasks.cost import quadratic_cost_nb, quaternion_dist_nb, hamming_dist_nb
 
 @dataclass
 class ConfigG1Gait():
@@ -107,7 +106,7 @@ class G1Gait(TaskMj):
         self.add_state_cost(
             "joint_pos",
             quadratic_cost_nb,
-            G1._25DoF.IDX_JOINT_POS,
+            sim.mj_scene.act_pos_adr,
             weights=cfg.joint_pos_weight,
             use_intial_as_ref=True,
             weights_terminal=cfg.joint_pos_weight_terminal,
@@ -115,13 +114,13 @@ class G1Gait(TaskMj):
         self.add_state_cost(
             "joint_vel_upper",
             quadratic_cost_nb,
-            G1._25DoF.IDX_JOINT_VEL[G1._25DoF.IDX_WAIST_YAW-7:],
+            sim.mj_scene.act_vel_adr[G1._25DoF.IDX_WAIST_YAW:],
             weights=cfg.joint_vel_weight,
         )
         self.add_state_cost(
             "joint_vel_lower",
             quadratic_cost_nb,
-            G1._25DoF.IDX_JOINT_VEL[:G1._25DoF.IDX_WAIST_YAW-7],
+            sim.mj_scene.act_vel_adr[:G1._25DoF.IDX_WAIST_YAW],
             weights=cfg.joint_vel_weight * cfg.joint_vel_lower_mult,
         )
         self.add_sensor_cost(

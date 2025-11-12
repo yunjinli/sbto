@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import sbto.tasks.g1.constants as G1
 from sbto.sim.sim_mj_rollout import SimMjRollout
 from sbto.tasks.task_mj import  TaskMj
-from sbto.utils.cost import quadratic_cost_nb, quaternion_dist_nb, hamming_dist_nb
+from sbto.tasks.cost import quadratic_cost_nb, quaternion_dist_nb, hamming_dist_nb
 
 
 @dataclass
@@ -103,9 +103,9 @@ class G1PickupFloor(TaskMj):
         squat_pose = sim.mj_scene.mj_model.keyframe("knees_bent_pickup").qpos
         lift_pose = sim.mj_scene.mj_model.keyframe("home").qpos
 
-        stand_joints = stand_pose[G1._25DoF_Obj.IDX_JOINT_POS]
-        pickup_joints = squat_pose[G1._25DoF_Obj.IDX_JOINT_POS]
-        lift_joints = lift_pose[G1._25DoF_Obj.IDX_JOINT_POS]
+        stand_joints = stand_pose[sim.mj_scene.act_pos_adr]
+        pickup_joints = squat_pose[sim.mj_scene.act_pos_adr]
+        lift_joints = lift_pose[sim.mj_scene.act_pos_adr]
 
         # --- Time parameters ---
         dt = sim.mj_scene.dt
@@ -137,7 +137,7 @@ class G1PickupFloor(TaskMj):
         self.add_state_cost(
             "joint_pos",
             quadratic_cost_nb,
-            G1._25DoF_Obj.IDX_JOINT_POS,
+            sim.mj_scene.act_pos_adr,
             weights=joint_pos_weight,
             ref_values=joint_ref_traj,
             # weights_terminal=cfg.joint_pos_weight_terminal,
@@ -147,7 +147,7 @@ class G1PickupFloor(TaskMj):
         self.add_state_cost(
             "joint_vel",
             quadratic_cost_nb,
-            G1._25DoF_Obj.IDX_JOINT_VEL,
+            sim.mj_scene.act_vel_adr,
             weights=cfg.joint_vel_weight,
             weights_terminal=cfg.joint_vel_weight_terminal,
         )
@@ -253,7 +253,7 @@ class G1PickupFloor(TaskMj):
         self.add_state_cost(
             "obj_position",
             quadratic_cost_nb,
-            G1._25DoF_Obj.IDX_BOX_POS,
+            sim.mj_scene.obj_pos_adr,
             weights=cfg.obj_pos_weight,
             weights_terminal=cfg.obj_pos_weight_terminal,
             ref_values=obj_position_ref,
@@ -262,7 +262,7 @@ class G1PickupFloor(TaskMj):
         self.add_state_cost(
             "obj_quat",
             quadratic_cost_nb,
-            G1._25DoF_Obj.IDX_BOX_QUAT,
+            sim.mj_scene.obj_quat_adr,
             weights=cfg.obj_quat_weight,
             weights_terminal=cfg.obj_quat_weight_terminal,
             use_intial_as_ref=True
@@ -270,14 +270,14 @@ class G1PickupFloor(TaskMj):
         self.add_state_cost(
             "obj_linvel",
             quadratic_cost_nb,
-            G1._25DoF_Obj.IDX_BOX_LINVEL,
+            sim.mj_scene.obj_v_adr,
             weights=cfg.obj_linvel_weight,
             weights_terminal=cfg.obj_linvel_weight*10,
         )
         self.add_state_cost(
             "obj_angvel",
             quadratic_cost_nb,
-            G1._25DoF_Obj.IDX_BOX_ANGVEL,
+            sim.mj_scene.obj_w_adr,
             weights=cfg.obj_angvel_weight,
             weights_terminal=cfg.obj_angvel_weight*10,
         )
