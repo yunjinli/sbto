@@ -34,6 +34,10 @@ class Sensors:
         "left_hand_pos",
         "right_hand_pos",
     ]
+    HAND_QUAT = [
+        "left_hand_orientation",
+        "right_hand_orientation",
+    ]
     FEET_POS = [
         "left_foot_pos",
         "right_foot_pos",

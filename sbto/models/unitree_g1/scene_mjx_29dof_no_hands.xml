@@ -21,13 +21,9 @@
   </asset>
 
   <worldbody>
-    <geom name="floor" size="0 0 0.01" type="plane" material="groundplane"/>
-    <!-- <body name="obj" pos="0.35 0. 0.115" >
-      <freejoint name="floating_obj_joint"/>
-      <geom name="obj" size="0.1 0.1 0.115" class="dynamic" mass="0.6"/>
-    </body> -->
+    <body name="static">
+      <geom name="floor" size="0 0 0.01" type="plane" material="groundplane"/>
+    </body>
   </worldbody>
-  
-  <include file="sensors/default.xml"/>
-  <include file="contact_pairs/minimal.xml"/>
+
 </mujoco>

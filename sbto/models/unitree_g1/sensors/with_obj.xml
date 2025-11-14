@@ -52,6 +52,13 @@
         <framepos objtype="geom" objname="obj" name="global_pos_obj"/>
         <framequat objtype="geom" objname="obj" name="global_quat_obj"/>
 
+
+        <framepos name="left_hand_position" objtype="site" objname="left_palm" />
+        <framequat name="left_hand_orientation" objtype="site" objname="left_palm" />
+
+        <framepos name="right_hand_position" objtype="site" objname="right_palm" />
+        <framequat name="right_hand_orientation" objtype="site" objname="right_palm" />
+
         <!-- feet pos and vel -->
         <!--         
         <framepos objtype="site" objname="right_foot" name="right_foot_pos"/>

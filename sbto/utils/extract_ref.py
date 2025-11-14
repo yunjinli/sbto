@@ -2,16 +2,17 @@ import pickle
 import mujoco
 import numpy as np
 from scipy.interpolate import interp1d
+from typing import List
 
 def compute_time_from_fps(fps, N):
-    time = np.arange(N) / fps
-    return time
+    return np.arange(N) / fps
 
 def quatxyzw2quatwxyz(quat):
     new_quat = np.empty_like(quat)
     new_quat[:, 0] = quat[:, -1]
     new_quat[:, 1:] = quat[:, :3]
     return new_quat
+
 
 def normalize_quat(quat):
     quat /= np.linalg.norm(quat, axis=-1, keepdims=True)
@@ -43,16 +44,17 @@ def concatenate_full_state(data):
     x = np.concatenate((qpos, qvel), axis=-1)
     return qpos, qvel, x
 
+
 def interpolate_data(data, dt: float):
     t_interp = np.arange(0, data["time"][-1], dt)
     NO_INTERP = ["time", "fps"]
+
     for k, v in data.items():
         if k not in NO_INTERP and v is not None:
-            print(k)
             interpolate = interp1d(
                 data["time"],
-                y = v,
-                axis=0
+                y=v,
+                axis=0,
             )
             data[k] = interpolate(t_interp)
             if "rot" in k:
@@ -61,73 +63,48 @@ def interpolate_data(data, dt: float):
     data["time"] = t_interp
     return data
 
-def extract_sensor_data(mj_model, state_traj, sensor_names):
-    """
-    Extract specified sensor data from a MuJoCo model along a state trajectory.
-
-    Args:
-        mj_model_xml_path (str): Path to the MuJoCo XML model.
-        state_traj (np.ndarray): Array of shape [T, nq + nv] containing qpos and qvel
-                                 for each time step.
-        sensor_names (list[str]): List of sensor names to extract.
-
-    Returns:
-        np.ndarray: Array of shape [T, len(sensor_names), sensor_dim_i]
-                    containing the sensor data per timestep.
-                    If sensor dims differ, returns a list of arrays instead.
-    """
-    # Load model and create data
+def extract_sensor_data(mj_model, state_traj, sensor_name: str):
+    """Extracts sensors over a trajectory [T, nq+nv]."""
     data = mujoco.MjData(mj_model)
 
-    # Get sensor indices and dimensions
     sensor_info = []
-    for name in sensor_names:
-        sid = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_SENSOR, name)
-        adr = mj_model.sensor_adr[sid]
-        dim = mj_model.sensor_dim[sid]
-        sensor_info.append((adr, dim))
+    sid = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_SENSOR, sensor_name)
+    adr = mj_model.sensor_adr[sid]
+    dim = mj_model.sensor_dim[sid]
+    sensor_info = (adr, dim)
 
     T = len(state_traj)
     sensor_data = []
 
     nq = mj_model.nq
-    qpos_traj = np.copy(state_traj[:, :nq])
-    qvel_traj = np.copy(state_traj[:, nq:])
+    qpos_traj = state_traj[:, :nq]
+    qvel_traj = state_traj[:, nq:]
 
     for t in range(T):
-        # Split qpos and qvel
         data.qpos[:] = qpos_traj[t]
         data.qvel[:] = qvel_traj[t]
-        
-        # Compute sensors
         mujoco.mj_forward(mj_model, data)
-        
-        # Extract requested sensors
-        step_sensors = []
-        for adr, dim in sensor_info:
-            step_sensors.append(np.copy(data.sensordata[adr:adr+dim]))
-        sensor_data.append(step_sensors)
 
-    # Convert to array if possible
+        step = []
+        adr, dim = sensor_info
+        step.append(np.copy(data.sensordata[adr:adr+dim]))
+        sensor_data.append(step)
+
     try:
         sensor_data = np.squeeze(np.array(sensor_data))
-    except:
-        # fall back to list of per-step arrays if dims differ
+    except Exception:
         pass
 
     return sensor_data
 
-
-def load_reference_trajectory(
-    path: str,
+def load_reference(
+    ref_motion_path: str,
     xml_path: str,
-    sensor_names = [],
-    speedup: float = 1.,
-    z_offset: float = 0.
+    speedup: float = 1.0,
+    z_offset: float = 0.0,
     ):
-    # if the file contains multiple pickled objects in sequence:
     objs = []
-    with open(path, "rb") as f:
+    with open(ref_motion_path, "rb") as f:
         while True:
             try:
                 objs.append(pickle.load(f))
@@ -135,39 +112,156 @@ def load_reference_trajectory(
                 break
 
     data = {}
-    for sub_dict in objs:
-        for k, v in sub_dict.items():
-            data[k] = v
+    for sub in objs:
+        data.update(sub)
 
-    data["time"] = compute_time_from_fps(data["fps"] * speedup, len(data["root_pos"]))
+    N = len(data["root_pos"])
+    data["time"] = compute_time_from_fps(data["fps"] * speedup, N)
 
     mj_model = mujoco.MjModel.from_xml_path(xml_path)
 
     dt_interp = mj_model.opt.timestep
-    if dt_interp > 0.:
+    if dt_interp > 0:
         data = interpolate_data(data, dt_interp)
 
     if z_offset != 0:
-        data["root_pos"][:, 2] = data["root_pos"][:, 2] - z_offset
-        if "object_pos" in data:
-            data["object_root_pos"][:, 2] = data["object_root_pos"][:, 2] - z_offset
+        data["root_pos"][:, 2] -= z_offset
+        if "object_root_pos" in data:
+            data["object_root_pos"][:, 2] -= z_offset
 
     data["root_rot"] = quatxyzw2quatwxyz(data["root_rot"])
     if "object_rot" in data:
         data["object_rot"] = quatxyzw2quatwxyz(data["object_rot"])
-        
+
     data["qpos"], data["qvel"], data["x"] = concatenate_full_state(data)
 
-    for sensor_name in sensor_names:
-        if not isinstance(sensor_name, list):
-            sensor_name_list = [sensor_name]
-            sensor_data_key = sensor_name
-        else:
-            sensor_name_list = sensor_name
-            sensor_data_key = "_".join(sensor_name_list)
-        data[sensor_data_key] = extract_sensor_data(mj_model, data["x"], sensor_name_list)
-
     return data
+
+class ReferenceMotion:
+    """
+    Loads reference trajectories from pickled logs.
+    Automatically loads and processes trajectory in __init__.
+    """
+    def __init__(
+        self,
+        ref_motion_path: str,
+        xml_path: str,
+        t0: float = 0.,
+        speedup: float = 1.0,
+        z_offset: float = 0.0,
+    ):
+        self.ref_motion_path = ref_motion_path
+        self.xml_path = xml_path
+        self.speedup = speedup
+        self.z_offset = z_offset
+
+        self.data = load_reference(
+            ref_motion_path,
+            xml_path,
+            speedup,
+            z_offset,
+        )
+        self.shift_start_time(t0)
+
+        for key, value in self.data.items():
+            setattr(self, key, value)
+
+    def add_sensor_data(self, mj_model, sensor_names: List[str]):
+        for sensor_name in sensor_names:
+            sensor_data = extract_sensor_data(mj_model, self.data["x"], sensor_name)
+            self.data[sensor_name] = sensor_data
+
+    def shift_start_time(self, t0: float):
+        """
+        Shift / trim the trajectory so that new time starts at 0
+        and corresponds to the old time t0.
+
+        Parameters
+        ----------
+        t0 : float
+            The time (in seconds) at which the new trajectory should start.
+        """
+        time = self.data["time"]
+        if t0 <= 0:
+            return  # nothing to do
+
+        # Find the first index with time >= t0
+        i0 = np.searchsorted(time, t0)
+
+        # Slice all time-dependent arrays
+        for key, value in list(self.data.items()):
+            # Only slice arrays with matching length on axis 0
+            if isinstance(value, np.ndarray) and value.shape[0] == len(time):
+                self.data[key] = value[i0:]
+
+        # Reset time to start at zero
+        self.data["time"] = self.data["time"] - self.data["time"][0]
+
+    def extend_to_length(self, T_needed: int):
+        """
+        Extend all time-dependent arrays to have at least T_needed timesteps
+        by repeating the last timestep's data.
+
+        Parameters
+        ----------
+        T_needed : int
+            Desired minimum number of timesteps.
+        """
+        time = self.data["time"]
+        T = len(time)
+
+        if T_needed <= T:
+            return  # already long enough
+
+        # How many steps need to be added
+        extra = T_needed - T
+
+        # Determine dt (use last interval, or 0 if length < 2)
+        if T >= 2:
+            dt = time[-1] - time[-2]
+        else:
+            dt = 0.0
+
+        # --- Extend time ---
+        new_times = time[-1] + dt * np.arange(1, extra + 1)
+        self.data["time"] = np.concatenate([time, new_times], axis=0)
+
+        # --- Extend each time-dependent array ---
+        for key, arr in list(self.data.items()):
+            if not isinstance(arr, np.ndarray):
+                continue
+            # Only extend arrays whose first axis is time-dependent
+            if arr.shape[0] != T:
+                continue
+
+            last_val = arr[-1:]
+            pad = np.repeat(last_val, repeats=extra, axis=0)
+            self.data[key] = np.concatenate([arr, pad], axis=0)
+
+        # Re-bind attributes (keep class in sync with .data)
+        for key, value in self.data.items():
+            setattr(self, key, value)
+    
+    def get_act_qpos_range(self):
+        q_min = np.min(self.qpos[:, self.act_qpos_adr], axis=-1)
+        q_max = np.max(self.qpos[:, self.act_qpos_adr], axis=-1)
+        return q_min, q_max
+    
+    def get_act_qpos_mean(self):
+        return np.mean(self.qpos[:, self.act_qpos_adr], axis=0)
+    
+    @property
+    def qpos0(self):
+        return self.qpos[0]
+    
+    @property
+    def x0(self):
+        return self.x[0]
+    
+    @property
+    def act_qpos0(self):
+        return self.qpos[0, self.act_qpos_adr]
+
 
 if __name__ == "__main__":
     import mujoco
@@ -179,7 +273,7 @@ if __name__ == "__main__":
     path = "test/sub3_largebox_003.pkl"
     xml = "sbto/models/unitree_g1/scene_mjx.xml"
 
-    data = load_reference_trajectory(path, xml, speedup=1.1, sensor_names=G1.Sensors.FEET_CONTACTS, z_offset=0.027)
+    data = load_reference(path, xml, sensor_names=G1.Sensors.FEET_CONTACTS, speedup=1.1, z_offset=0.025)
     print(data.keys())
     print(data['x'].shape)
 

@@ -71,7 +71,8 @@ class SimMjRollout(SimRolloutBase):
             )
         
         # Set initial state
-        self.set_initial_state_from_keyframe(cfg.keyframe_x0)
+        if cfg.keyframe_x0:
+            self.set_initial_state_from_keyframe(cfg.keyframe_x0)
 
         # Set actuator limits
         self.set_act_limits(
