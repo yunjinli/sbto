@@ -2,7 +2,7 @@ import numpy as np
 import numpy.typing as npt
 from abc import ABC, abstractmethod
 from typing import Any, Tuple, Callable, Optional
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, PchipInterpolator
 from functools import partial
 
 from sbto.sim.action_scaling import Scaling
@@ -33,8 +33,10 @@ class SimRolloutBase(ABC):
 
         # spline interpolation
         self.interp_kind = interp_kind
-        self.t_all = np.int32(np.linspace(0, 1, T, endpoint=True) * T)
-        self.t_knots = np.int32(np.linspace(0, 1, Nknots, endpoint=True) * T)
+        self.t_all = np.int32(np.ceil(np.linspace(0, 1, T, endpoint=True) * T))
+        self.t_all[-1] -= 1
+        self.t_knots = np.int32(np.ceil(np.linspace(0, 1, Nknots, endpoint=True) * T))
+        self.t_knots[-1] -= 1
 
         self.x_0 = np.zeros((self.Nx, ))
         # pd target scaling to joint range
@@ -76,23 +78,39 @@ class SimRolloutBase(ABC):
     def set_initial_state(self, x_0: Array) -> None:
         self.x_0[:] = x_0
 
-    def interpolate(self, u_knots):
+
+    def interpolate(self, u_knots, T_end: int = 0):
         """
         interpolate u_knots [-1, Nknots, Nu] in an array of shape [-1, T, Nu]
         """
         self._check_u_knots_shape(u_knots)
-        # Interpolate along each column
-        f = interp1d(
-            self.t_knots,
-            u_knots,
-            kind=self.interp_kind,
-            copy=False,
-            bounds_error=False,
-            assume_sorted=True,
-            axis=-2,
+
+        if T_end <= 0 and T_end < self.T:
+            T_end = self.T
+            Nknots_interp = np.searchsorted(self.t_knots, self.T, side='left', sorter=None)
+        else:
+            Nknots_interp = self.Nknots
+
+        if self.interp_kind == "pchip":
+            f = PchipInterpolator(
+                self.t_knots[:Nknots_interp],
+                u_knots[:, :Nknots_interp, :],
+                axis=-2,
+                extrapolate=False
             )
 
-        return f(self.t_all)
+        else:
+            # Interpolate along each column
+            f = interp1d(
+                self.t_knots[:Nknots_interp],
+                u_knots[:, :Nknots_interp, :],
+                kind=self.interp_kind,
+                copy=False,
+                bounds_error=False,
+                assume_sorted=True,
+                axis=-2,
+                )
+        return f(self.t_all[:T_end])
     
     def rollout(self, u_knots : Array, with_x0: bool = False) -> Tuple[Array, Array, Array]:
         """
