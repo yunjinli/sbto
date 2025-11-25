@@ -9,7 +9,7 @@ from sbto.sim.sim_base import SimRolloutBase
 from sbto.tasks.task_base import OCPBase
 from sbto.tasks.task_mj_ref import TaskMjRef
 from sbto.solvers.solver_base import SamplingBasedSolver, SolverState
-from sbto.run.optimize import optimize_single_shooting, optimize_mutiple_shooting, optimize_cumulative_opt
+from sbto.run.optimize import optimize_single_shooting, optimize_mutiple_shooting, optimize_incremental_opt
 from sbto.run.save import save_results, get_final_state_from_rundir
 
 def optimize_and_save_data(
@@ -21,7 +21,7 @@ def optimize_and_save_data(
     save_fig: bool = True,
     solver_state_0: Optional[SolverState] = None,
     multiple_shooting: bool = False,
-    cumul_opt: bool = False,
+    incremental: bool = False,
     ) -> None:
 
     # Save initial state
@@ -35,8 +35,8 @@ def optimize_and_save_data(
         if not isinstance(task, TaskMjRef):
             raise ValueError("Task should be an instance of TaskMjRef (with reference)")
         optimizer_fn = optimize_mutiple_shooting
-    elif cumul_opt:
-        optimizer_fn = optimize_cumulative_opt
+    elif incremental:
+        optimizer_fn = optimize_incremental_opt
     else:
         optimizer_fn = optimize_single_shooting
     
@@ -123,12 +123,12 @@ def main(cfg):
         cfg.warm_start.rundir = rundir
         solver.cfg.N_it = _N_it
 
-    if cfg.warm_start.cumul_opt:
+    if cfg.warm_start.incremental:
         _N_it = cfg.solver.cfg.N_it
         if cfg.warm_start.N_it > 0:
             solver.cfg.N_it = cfg.warm_start.N_it
 
-        description = cfg.description + "warm_start_cumul_opt"
+        description = cfg.description + "warm_start_incremental"
         rundir = optimize_and_save_data(
             sim,
             task,
@@ -137,7 +137,7 @@ def main(cfg):
             hydra_rundir,
             cfg.save_fig,
             solver_state_0=solver_state_0,
-            cumul_opt=True
+            incremental=True
         )
         cfg.warm_start.rundir = rundir
         solver.cfg.N_it = _N_it

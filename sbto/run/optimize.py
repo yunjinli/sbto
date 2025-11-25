@@ -68,7 +68,7 @@ def _optimize(
     task: OCPBase,
     solver: SamplingBasedSolver,
     compute_cost_fn: Any,
-    cumul_opt: bool = False,
+    incremental: bool = False,
     init_state_solver: Optional[SolverState] = None,
     ) -> Tuple[SolverState, Array, Array]:
     all_costs = []
@@ -93,7 +93,7 @@ def _optimize(
 
     for it in pbar:
         
-        if cumul_opt:
+        if incremental:
             cumul_mod = step_mod(it, solver.cfg.N_it, sim.T, Nknots=sim.Nknots)
             all_knots_optimized = np.all(cumul_mod == 1.)
 
@@ -155,7 +155,7 @@ def optimize_mutiple_shooting(
         init_state_solver,
     )
 
-# def optimize_cumulative_opt(
+# def optimize_incremental_opt(
 #     sim: SimRolloutBase,
 #     task: OCPBase,
 #     solver: SamplingBasedSolver,
@@ -170,7 +170,7 @@ def optimize_mutiple_shooting(
 #         init_state_solver,
 #     )
 
-def optimize_cumulative_opt(
+def optimize_incremental_opt(
     sim: SimRolloutBase,
     task: OCPBase,
     solver: SamplingBasedSolver,
