@@ -291,22 +291,23 @@ class MjScene():
         INVALID_KWARGS = [
             "type"
         ]
-
-        for body_name, kwargs in self.cfg.add_body.items():
+        for name, kwargs in self.cfg.add_body.items():
             # get geom type
             geom_type = kwargs["type"]
             if not geom_type in self.edit.AVAILABLE_GEOM:
-                geom_type = "box"
+                geom_type = "body_only"
 
-            geom_kwargs = {k:v for k, v in kwargs.items() if not k in INVALID_KWARGS}
+            kwargs = {k:v for k, v in kwargs.items() if not k in INVALID_KWARGS}
 
             match geom_type:
+                case "body_only":
+                    self.edit.add_body(name=name, **kwargs)
                 case "box":
-                    self.edit.add_box(name=body_name, **geom_kwargs)
+                    self.edit.add_box(name=name, **kwargs)
                 case "cylinder":
-                    self.edit.add_cylinder(name=body_name, **geom_kwargs)
+                    self.edit.add_cylinder(name=name, **kwargs)
                 case "sphere":
-                    self.edit.add_sphere(name=body_name, **geom_kwargs)
+                    self.edit.add_sphere(name=name, **kwargs)
     
     def add_keyframes(self):
         path = self.cfg.xml_keyframes_path

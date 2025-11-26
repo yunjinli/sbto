@@ -37,7 +37,10 @@ class ModelEditor():
     @staticmethod
     def _set_attr_from_kwargs(obj: Any, **kwargs) -> None:
         for k, v in kwargs.items():
-            setattr(obj, k, v)
+            try:
+                setattr(obj, k, v)
+            except:
+                pass
 
     @staticmethod
     def _copy_attr_obj(obj_src: Any, obj_dst: Any) -> None:
@@ -46,6 +49,45 @@ class ModelEditor():
                     setattr(obj_dst, attr, getattr(obj_src, attr))
                 except Exception as e:
                     continue
+
+    def _body_id(self, name) -> int:
+        for i, body in enumerate(self.mj_spec.bodies):
+            if body.name == name:
+                return i
+        return -1
+    
+    @with_callback()
+    def add_body(
+        self,
+        pos : np.ndarray,
+        euler : np.ndarray,
+        name : str = "",
+        **kwargs,
+        ) -> int:
+        # cast to array
+        pos = np.asarray(pos)
+        euler = np.asarray(euler)
+
+        if name:
+            if name in self.name2id:
+                name = f"{name}_{self.id}"
+        else:
+            name = f"{ModelEditor.DEFAULT_NAME}_{self.id}"
+        
+        body = self.mj_spec.worldbody.add_body(
+            name=name,
+            pos=pos.copy(),
+            quat=self._to_quat(euler),
+            )
+        self._set_attr_from_kwargs(body, **kwargs)
+
+        # Update maps
+        self.id2name[self.id] = name
+        self.name2id[name] = self.id
+        self.id += 1
+        i = self.id - 1
+
+        return body, i
 
     @with_callback()
     def _add_body_and_geom(
@@ -57,7 +99,6 @@ class ModelEditor():
         rgba : List[float],
         name : str = "",
         freejoint: bool = False,
-        bodyname: str = "",
         **kwargs,
         ) -> int:
         # cast to array
@@ -65,32 +106,30 @@ class ModelEditor():
         size = np.asarray(size)
         euler = np.asarray(euler)
         
-        if name:
-            if name in self.name2id:
-                name = f"{name}_{self.id}"
-        else:
-            name = f"{ModelEditor.DEFAULT_NAME}_{self.id}"
-        
-        if bodyname:
-            body = self.mj_spec.body(bodyname)
-        else:
-            body = self.mj_spec.worldbody.add_body(
-                name=name,
-                pos=pos.copy(),
-                quat = self._to_quat(euler),
-                )
-        
-        return self._add_geom_to_body(
+        body, id = self.add_body(
+            pos,
+            euler,
+            name,
+        )
+
+        # Body already at the desired pos
+        pos_geom = np.zeros_like(pos)
+        euler_geom = np.zeros_like(euler)
+        self._add_geom_to_body(
             body,
             geom_type,
-            pos,
+            pos_geom,
             size,
-            euler,
+            euler_geom,
             rgba,
             name,
-            freejoint,
             **kwargs,
         )
+        
+        if freejoint:
+            body.add_freejoint()
+
+        return id
     
     @with_callback()
     def _add_geom_to_body(
@@ -102,33 +141,20 @@ class ModelEditor():
         euler : np.ndarray,
         rgba : List[float],
         name : str = "",
-        freejoint: bool = False,
         **kwargs,
         ) -> int:
         geom = body.add_geom()
-        
-        if freejoint:
-            body.add_freejoint()
-        else:
-            geom.pos = pos
-            geom.quat = self._to_quat(euler)
         if rgba is None:
             rgba = np.ones(4)
+
+        geom.pos = pos
+        geom.quat = self._to_quat(euler)
         geom.type = geom_type
         geom.size = size.copy()
         geom.rgba = rgba
         geom.name = name
         geom.mass = 1.
         self._set_attr_from_kwargs(geom, **kwargs)
-
-        # Update maps
-        self.id2name[self.id] = name
-        self.name2id[name] = self.id
-        self.id += 1
-
-        # Return index
-        return self.id - 1
-
 
     def add_box(
         self,
@@ -142,18 +168,35 @@ class ModelEditor():
         **kwargs,
         ) -> int:
 
-        return self._add_body_and_geom(
-            geom_type=mujoco.mjtGeom.mjGEOM_BOX,
-            pos=pos,
-            size=size,
-            euler=euler,
-            rgba=rgba,
-            name=name if name else "box",
-            freejoint=freejoint,
-            bodyname=bodyname,
-            **kwargs,
-        )
-
+        body_id = self._body_id(bodyname)
+        if bodyname and body_id >= 0:
+            body = self.mj_spec.body(bodyname)
+            i = body_id
+            self._add_geom_to_body(
+                body,
+                geom_type=mujoco.mjtGeom.mjGEOM_BOX,
+                pos=pos,
+                size=size,
+                euler=euler,
+                rgba=rgba,
+                name=name if name else "box",
+                **kwargs,
+            )
+            if freejoint:
+                body.add_freejoint()
+        else:
+            i = self._add_body_and_geom(
+                geom_type=mujoco.mjtGeom.mjGEOM_BOX,
+                pos=pos,
+                size=size,
+                euler=euler,
+                rgba=rgba,
+                name=name if name else "box",
+                freejoint=freejoint,
+                **kwargs,
+            )
+        return i
+    
     def add_sphere(
         self,
         pos : np.ndarray,
@@ -167,18 +210,35 @@ class ModelEditor():
 
         size = np.array([radius, 0, 0])
         euler = np.zeros(3)
-        return self._add_body_and_geom(
-            geom_type=mujoco.mjtGeom.mjGEOM_SPHERE,
-            pos=pos,
-            size=size,
-            euler=euler,
-            rgba=rgba,
-            name=name if name else "sphere",
-            freejoint=freejoint,
-            bodyname=bodyname,
-            **kwargs,
-        )
-
+        body_id = self._body_id(bodyname)
+        if bodyname and body_id >= 0:
+            body = self.mj_spec.body(bodyname)
+            i = body_id
+            self._add_geom_to_body(
+                body,
+                geom_type=mujoco.mjtGeom.mjGEOM_SPHERE,
+                pos=pos,
+                size=size,
+                euler=euler,
+                rgba=rgba,
+                name=name if name else "sphere",
+                **kwargs,
+            )
+            if freejoint:
+                body.add_freejoint()
+        else:
+            i = self._add_body_and_geom(
+                geom_type=mujoco.mjtGeom.mjGEOM_SPHERE,
+                pos=pos,
+                size=size,
+                euler=euler,
+                rgba=rgba,
+                name=name if name else "sphere",
+                freejoint=freejoint,
+                **kwargs,
+            )
+        return i
+    
     def add_cylinder(
         self,
         pos : np.ndarray,
@@ -192,19 +252,37 @@ class ModelEditor():
         **kwargs,
         ) -> int:
         
-        size = np.array([radius / 2., height / 2., 0])
-        return self._add_body_and_geom(
-            geom_type=mujoco.mjtGeom.mjGEOM_CYLINDER,
-            pos=pos,
-            size=size,
-            euler=euler,
-            rgba=rgba,
-            name=name if name else "cylinder",
-            freejoint=freejoint,
-            bodyname=bodyname,
-            **kwargs,
-        )
-    
+        size = np.array([radius, height / 2., 0])
+        body_id = self._body_id(bodyname)
+        if bodyname and body_id >= 0:
+            body = self.mj_spec.body(bodyname)
+            i = body_id
+            self._add_geom_to_body(
+                body,
+                geom_type=mujoco.mjtGeom.mjGEOM_CYLINDER,
+                pos=pos,
+                size=size,
+                euler=euler,
+                rgba=rgba,
+                name=name if name else "cylinder",
+                **kwargs,
+            )
+            if freejoint:
+                body.add_freejoint()
+
+        else:
+            i = self._add_body_and_geom(
+                geom_type=mujoco.mjtGeom.mjGEOM_CYLINDER,
+                pos=pos,
+                size=size,
+                euler=euler,
+                rgba=rgba,
+                name=name if name else "cylinder",
+                freejoint=freejoint,
+                **kwargs,
+            )
+        return i
+
     def get_body(
         self, 
         name: Optional[str] = None, 
