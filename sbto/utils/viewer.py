@@ -62,6 +62,7 @@ def visualize_trajectory(
                 step = (step + 1) % T
 
             q, v = np.split(x_traj[step], [Nq])
+            mj_data.time = t[step]
             mj_data.qpos = q
             mj_data.qvel = v
             mujoco.mj_forward(mj_model, mj_data)
