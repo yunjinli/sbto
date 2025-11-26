@@ -79,16 +79,16 @@ class SimRolloutBase(ABC):
     def set_initial_state(self, x_0: Array) -> None:
         self.x_0[:] = x_0
 
-    def interpolate(self, u_knots, T_end: int = 0):
+    def interpolate(self, u_knots, T_end: int = -1):
         """
         interpolate u_knots [-1, Nknots, Nu] in an array of shape [-1, T, Nu]
         """
         self._check_u_knots_shape(u_knots)
 
-        if T_end <= 0 and T_end < self.T:
-            T_end = self.T
-            Nknots_interp = np.searchsorted(self.t_knots, self.T, side='left', sorter=None)
+        if T_end >= 0 and T_end < self.T:
+            Nknots_interp = np.searchsorted(self.t_knots, T_end, side='right', sorter=None)
         else:
+            T_end = self.T
             Nknots_interp = self.Nknots
 
         if self.interp_kind == "pchip":

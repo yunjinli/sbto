@@ -53,6 +53,7 @@ class SamplingBasedSolver(ABC):
         # Mask to optimize only some variables, used for incremental optimization
         self._mask_mean = np.ones((self.D,))
         self._mask_cov = np.ones((self.D, self.D))
+        self.n_dim = self.D
 
     def opt_first_dim(self, n_dim: int = -1):
         """
@@ -61,12 +62,14 @@ class SamplingBasedSolver(ABC):
         if n_dim == -1:
             self._mask_mean[:] = 1.
             self._mask_cov[:, :] = 1.
+            self.n_dim = self.D
         else:
             self._mask_mean[:n_dim] = 1.
             self._mask_mean[n_dim:] = 0.
             self._mask_cov[:n_dim, :n_dim] = 1.
             self._mask_cov[n_dim:, :] = 0.
             self._mask_cov[:, n_dim:] = 0.
+            self.n_dim = n_dim
     
     def _get_sampler(self) -> SamplerAbstract:
         sampler_name = self.cfg.sampler
@@ -93,8 +96,8 @@ class SamplingBasedSolver(ABC):
         return SolverState(
             mean=mean,
             cov=cov,
-            best=np.empty_like(mean),
-            best_all=np.empty_like(mean),
+            best=np.zeros_like(mean),
+            best_all=np.zeros_like(mean),
             min_cost=np.inf,
             min_cost_all=np.inf,
         )
@@ -103,8 +106,8 @@ class SamplingBasedSolver(ABC):
     def reset_min_cost_best(state: SolverState):
         state.min_cost = np.inf
         state.min_cost_all = np.inf
-        state.best = np.empty_like(state.mean)
-        state.best_all = np.empty_like(state.mean)
+        state.best = np.zeros_like(state.mean)
+        state.best_all = np.zeros_like(state.mean)
 
     def update_min_cost_best(
             self,

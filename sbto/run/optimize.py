@@ -135,7 +135,7 @@ def optimize_incremental_opt(
         pbar_knots.set_description_str(f"Opt. first {N_knots_to_opt+1} knots")
         pbar_it = trange(N_max_it_per_knots, leave=False)
 
-        t_end = sim.t_knots[N_knots_to_opt] + 1
+        t_end = sim.t_knots[N_knots_to_opt]
         N_var_to_opt = (N_knots_to_opt + 1) * sim.Nu
         solver.opt_first_dim(N_var_to_opt)
 

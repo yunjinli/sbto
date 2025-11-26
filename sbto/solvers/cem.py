@@ -36,21 +36,20 @@ class CEM(SamplingBasedSolver):
         self.reg_cov = cfg.std_incr > 0.
         
         self.first_it = True
-        if self.N_keep > 0:
-            self.samples = np.empty((cfg.N_samples, D))
+        # if self.N_keep > 0:
+        self.samples = np.zeros((cfg.N_samples, D))
 
     def get_samples(self) -> Array:
         """
         Get samples from distribution parametrized
         by the current state.
         """
-        samples = super().get_samples()
-
-        if self.N_keep > 0 and not self.first_it:
-            self.samples[self.N_keep:] = samples[self.N_keep:]
-            return self.samples
-        else:
-            return samples
+        N = 0 if self.first_it else self.N_keep
+        self.samples[N:, :self.n_dim] = self.sampler.sample(
+            mean=self.state.mean[:self.n_dim],
+            cov=self.state.cov[:self.n_dim, :self.n_dim],
+        )[N:]
+        return self.samples
         
     def get_elites(self, samples: Array, costs: Array) -> Tuple[Array, IntArray]:
         """
@@ -66,6 +65,7 @@ class CEM(SamplingBasedSolver):
         mean, cov = self.sampler.estimate_params(elites)
         if self.reg_cov:
             cov += self.Id
+
         # Update state params with exponential smoothing
         state.mean += self._mask_mean * self.cfg.alpha_mean * (mean - state.mean)
         state.cov += self._mask_cov * self.cfg.alpha_cov * (cov - state.cov)

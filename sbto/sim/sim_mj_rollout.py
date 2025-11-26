@@ -148,9 +148,9 @@ class SimMjRollout(SimRolloutBase):
         # [N, Nx+1], include time as the first state
         self.initial_states = np.tile(np.concatenate((t0, self.x_0)), (self.N_allocated, 1))
         # [N, T, Nx+1]
-        self.state_rollout = np.empty((self.N_allocated, T, self.Nx+1))
+        self.state_rollout = np.zeros((self.N_allocated, T, self.Nx+1))
         # [N, T, Nobs]
-        self.sensordata_rollout = np.empty((self.N_allocated, T, self.mj_scene.Nobs))
+        self.sensordata_rollout = np.zeros((self.N_allocated, T, self.mj_scene.Nobs))
 
     def _rollout_dynamics(self, u_traj: Array, with_x0) -> Tuple[Array, Array, Array]:
         """
