@@ -1,6 +1,6 @@
 import hydra
 
-from utils.hydra import *
+from sbto.utils.hydra import *
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg):

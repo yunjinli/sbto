@@ -1,9 +1,10 @@
 import numpy as np
 from dataclasses import dataclass
+from typing import Optional
 
 import sbto.tasks.g1.constants as G1
 from sbto.sim.sim_mj_rollout import SimMjRollout
-from sbto.tasks.task_mj_ref import TaskMjRef
+from sbto.tasks.task_mj_ref import TaskMjRef, MjScene
 from sbto.tasks.cost import quadratic_cost_nb, quaternion_dist_nb, hamming_dist_nb
 
 @dataclass
@@ -45,9 +46,10 @@ class G1PickPlaceTableRef(TaskMjRef):
     def __init__(
         self,
         sim: SimMjRollout,
-        cfg: ConfigG1PickPlaceTableRef
+        cfg: ConfigG1PickPlaceTableRef,
+        mj_scene_ref: Optional[MjScene] = None,
         ):
-        super().__init__(sim)
+        super().__init__(sim, mj_scene_ref)
         Nu = sim.mj_scene.Nu
         dt = sim.mj_scene.dt
         T = sim.T

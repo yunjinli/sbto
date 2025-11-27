@@ -1,9 +1,10 @@
 import numpy as np
 from dataclasses import dataclass
+from typing import Optional
 
 import sbto.tasks.g1.constants as G1
 from sbto.sim.sim_mj_rollout import SimMjRollout
-from sbto.tasks.task_mj_ref import TaskMjRef
+from sbto.tasks.task_mj_ref import TaskMjRef, MjScene
 from sbto.tasks.cost import quadratic_cost_nb, quaternion_dist_nb, hamming_dist_nb
 
 @dataclass
@@ -35,6 +36,7 @@ class ConfigG1RobotObjRef():
     # --- Hand pose cost ---
     hand_position: float = 5.
     hand_orientation: float = 0.1
+    hand_pos_z_mult: float = 3.
 
     # --- Foot pose ---
     foot_position: float = 10.
@@ -60,9 +62,10 @@ class G1RobotObjRef(TaskMjRef):
     def __init__(
         self,
         sim: SimMjRollout,
-        cfg: ConfigG1RobotObjRef
+        cfg: ConfigG1RobotObjRef,
+        mj_scene_ref: Optional[MjScene] = None,
         ):
-        super().__init__(sim)
+        super().__init__(sim, mj_scene_ref)
         Nu = sim.mj_scene.Nu
         dt = sim.mj_scene.dt
         T = sim.T
@@ -177,8 +180,8 @@ class G1RobotObjRef(TaskMjRef):
         )
         # Hand position
         w = np.full(6, cfg.hand_position)
-        w[2] *= 2.
-        w[-1] *= 2.
+        w[2] *= cfg.hand_pos_z_mult
+        w[-1] *= cfg.hand_pos_z_mult
         self.add_sensor_cost_from_ref(
             G1.Sensors.HAND_POS,
             quadratic_cost_nb,

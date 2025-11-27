@@ -37,6 +37,7 @@ cfg:
   # --- Hand pose cost ---
   hand_position: 20.0
   hand_orientation: 0.
+  hand_pos_z_mult: 2.
 
   # --- Obj pose cost ---
   obj_pos_weight: 20.
@@ -50,7 +51,37 @@ cfg:
 
   collision_obj_robot: 2.
 
+# === MuJoCo Scene ===
+mj_scene_ref:
+  _target_: sbto.sim.scene_mj.MjScene
+  cfg:
+    _target_: sbto.sim.scene_mj.ConfigMjScene
+    xml_scene_path: sbto/models/unitree_g1/scene_mjx_29dof_no_hands.xml
+    xml_sensors_path: sbto/models/unitree_g1/sensors/tracking_w_obj.xml
+    xml_contact_pairs_path: sbto/models/unitree_g1/contact_pairs/with_obj.xml
+    add_body:
+    
+        largebox:
+          type: body_only
+          pos: [0.4, 0.0, 0.1]
+          euler: [0., 0., 0.]
 
+        obj:
+          type: box
+          pos: [0.0, 0.0, 0.0]
+          size: [0.18, 0.18, 0.18]
+          euler: [3.05, 0.11, 1.11]
+          mass: 0.6
+          rgba: [0.3, 0.3, 0.3, 1.0]
+          freejoint: true
+          bodyname: largebox
+          group: 1
+          priority: 1
+          condim: 3
+          contype: 0
+          conaffinity: 1
+          solref: [0.008, 1.0]
+          friction: [0.6, 0.005, 0.0001]
 
 # === Rollout simulator ===
 sim:

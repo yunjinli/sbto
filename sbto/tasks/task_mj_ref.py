@@ -1,15 +1,18 @@
 import numpy as np
+import mujoco
 from typing import Union, Optional, List
 
-from sbto.sim.sim_mj_rollout import SimMjRollout
+from sbto.sim.sim_mj_rollout import SimMjRollout, MjScene
 from sbto.tasks.task_mj import TaskMj, Array, CostFn, IntArray
 from sbto.utils.extract_ref import ReferenceMotion
 
 class TaskMjRef(TaskMj):
     def __init__(self,
                  sim: SimMjRollout,
+                 mj_scene_ref: Optional[MjScene] = None
                  ):
         super().__init__(sim)
+        self.mj_scene_ref = mj_scene_ref
         self.ref : ReferenceMotion = None
 
     def init_reference(
@@ -19,9 +22,10 @@ class TaskMjRef(TaskMj):
         speedup: float = 1.0,
         z_offset: float = 0.0,
         ):
+        mj_model = self.mj_scene_ref.mj_model if self.mj_scene_ref else self.mj_scene.mj_model
         self.ref = ReferenceMotion(
             ref_motion_path,
-            self.mj_scene.cfg.xml_scene_path,
+            mj_model,
             t0,
             speedup,
             z_offset,

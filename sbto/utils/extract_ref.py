@@ -137,7 +137,7 @@ class ReferenceMotion:
     def __init__(
         self,
         ref_motion_path: str,
-        xml_path: str,
+        mj_model: mujoco.MjModel,
         t0: float = 0.,
         speedup: float = 1.0,
         z_offset: float = 0.0,
@@ -151,7 +151,7 @@ class ReferenceMotion:
         self.time = compute_time_array(self.fps, len(self.qpos))
 
         # Mujoco model properties
-        self.mj_model = mujoco.MjModel.from_xml_path(xml_path)
+        self.mj_model = mj_model
 
         # Apply shift
         self.shift_start_time(t0)
