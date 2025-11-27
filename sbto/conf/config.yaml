@@ -7,6 +7,8 @@ defaults:
 description: ""
 # Save figures
 save_fig: true
+# Save video
+save_video: true
 # If a reference is provided, initial knots are taken from the reference
 init_knots_from_ref: false
 

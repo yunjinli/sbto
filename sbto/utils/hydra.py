@@ -19,7 +19,7 @@ def optimize_and_save_data(
     solver: SamplingBasedSolver,
     hydra_rundir: str = "",
     solver_state_0: Optional[SolverState] = None,
-    ) -> None:
+    ) -> str:
 
     # Copy initial state
     if solver_state_0:
@@ -52,7 +52,7 @@ def optimize_and_save_data(
         solver_state_0
     )
 
-    save_results(
+    rundir = save_results(
         sim,
         task,
         solver_state_0,
@@ -62,8 +62,11 @@ def optimize_and_save_data(
         cfg.description,
         hydra_rundir,
         cfg.save_fig,
+        cfg.save_video,
         cfg.warm_start.multiple_shooting,
     )
+
+    return rundir
 
 def instantiate_from_cfg(cfg):
     sim = instantiate(cfg.task.sim)
@@ -98,7 +101,6 @@ def get_warm_start_state_solver(cfg, sim, task, solver) -> SolverState:
 
     if cfg.warm_start.rundir and os.path.exists(cfg.warm_start.rundir):
         solver_state_0 = get_final_state_from_rundir(cfg.warm_start.rundir, solver)
-        print(solver_state_0.mean.shape)
         solver.reset_min_cost_best(solver_state_0)
 
         if cfg.warm_start.add_cov_diag > 0.:

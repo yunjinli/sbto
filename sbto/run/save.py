@@ -200,6 +200,7 @@ def save_results(
     description: str = "",
     hydra_rundir: str = "",
     save_fig: bool = True,
+    save_video: bool = True,
     multiple_shooting: bool = False,
     ) -> str:
     task_name = task.__class__.__name__
@@ -237,6 +238,7 @@ def save_results(
             solver_state_final.cov,
             all_costs,
         )
+    if save_video:
         render_and_save_trajectory(
             sim.mj_scene.mj_model,
             sim.mj_scene.mj_data,

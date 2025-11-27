@@ -8,14 +8,21 @@ def main(cfg):
 
     sim, task, solver = instantiate_from_cfg(cfg)
 
-    # Warm start
-    if (
+    is_warm_start = (
         cfg.warm_start.multiple_shooting or
         cfg.warm_start.incremental
-        ):
-        
+        )
+    is_warm_start_only = is_warm_start and solver.cfg.N_it == 0
+
+    # Warm start
+    if is_warm_start:
         cfg_ws = set_cfg_warm_start(cfg)
 
+        # Figures will be saved after warm_start
+        if not is_warm_start_only:
+            cfg_ws.save_fig = False
+            cfg_ws.save_video = False
+        
         # Update solver Nit
         _N_it = cfg_ws.solver.cfg.N_it
         if cfg_ws.warm_start.N_it > 0:

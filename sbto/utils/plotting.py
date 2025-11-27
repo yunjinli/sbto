@@ -48,6 +48,7 @@ def plot_state_control(
         joint_pos = x_traj[:, -Nu-7:-7]
         joint_vel = v_traj[:, -Nu-6:-6]
     # ---------------- FIGURE 1: Base ----------------
+    plt.close('all')
     fig1, axs1 = plt.subplots(3, 1, figsize=(10, 6), sharex=True)
     fig1.suptitle(f"{title_prefix} - Base States")
     labels_base = ['x', 'y', 'z']
@@ -158,7 +159,7 @@ def plot_costs(
     max_lim_cost = 3. * np.mean(all_costs[0, :])
     all_costs = np.clip(all_costs, None, max_lim_cost)
     Nit = all_costs.shape[0]
-
+    plt.close('all')
     plt.figure(figsize=(10, 5))
 
     # Boxplot per iteration
@@ -221,6 +222,7 @@ def plot_mean_cov(
         save_dir: Save direectory path
     """
     # ---------------- FIGURE: Control distribution ----------------
+    plt.close('all')
     fig, axs = plt.subplots(Nu, 1, figsize=(10, 2.5 * Nu), sharex=True)
     plt.title("Control Distribution", fontsize=14, fontweight="bold")
 
@@ -298,7 +300,8 @@ def plot_contact_plan(
     # cast to float
     contact_array = np.float32(contact_array)
     ref_array = np.float32(ref_array)
-
+    
+    plt.close('all')
     fig, ax = plt.subplots(figsize=(8, max(2, N * 0.6)))
 
     def draw_contacts(array, color, alpha=1.0, zorder=1, height=0.6):
