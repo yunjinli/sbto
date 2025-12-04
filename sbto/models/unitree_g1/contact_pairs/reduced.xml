@@ -27,6 +27,8 @@
     <!-- thigh - wrist -->
     <pair name="thigh_left_wrist" geom1="left_thigh_collision" geom2="left_wrist_collision" condim="1"/>
     <pair name="thigh_right_wrist" geom1="right_thigh_collision" geom2="right_wrist_collision" condim="1"/>
+    <pair name="right_thigh_left_wrist" geom1="right_thigh_collision" geom2="left_wrist_collision" condim="1"/>
+    <pair name="left_thigh_right_wrist" geom1="left_thigh_collision" geom2="right_wrist_collision" condim="1"/>
     <!-- torso - wrist -->
     <pair name="torso_left_wrist" geom1="torso_collision" geom2="left_wrist_collision" condim="1"/>
     <pair name="torso_right_wrist" geom1="torso_collision" geom2="right_wrist_collision" condim="1"/>
