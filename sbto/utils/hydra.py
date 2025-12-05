@@ -45,7 +45,7 @@ def optimize_and_save_data(
     else:
         optimizer_fn = optimize_single_shooting
     
-    solver_state_final, all_samples, all_costs = optimizer_fn(
+    solver_state_final, all_samples, all_costs, opt_perf = optimizer_fn(
         sim,
         task,
         solver,
@@ -66,6 +66,8 @@ def optimize_and_save_data(
         cfg.save_samples_costs,
         cfg.warm_start.multiple_shooting,
     )
+
+    opt_perf.save(rundir)
 
     return rundir
 
