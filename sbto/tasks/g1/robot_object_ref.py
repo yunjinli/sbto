@@ -63,7 +63,6 @@ class G1RobotObjRef(TaskMjRef):
         ):
         super().__init__(sim, cfg_ref, mj_scene_ref)
         dt = sim.mj_scene.dt
-        T = sim.T
 
         sensor_names = [
             G1.Sensors.TORSO_POS,
@@ -86,6 +85,14 @@ class G1RobotObjRef(TaskMjRef):
         q_max = sim.mj_scene.q_max
         sim.set_act_limits(q_min, q_max)
 
+        unused_sensors = []
+        if cfg.hand_orientation == 0.:
+            unused_sensors.extend(G1.Sensors.HAND_QUAT)
+            unused_sensors.extend(G1.Sensors.HAND_QUAT_OBJ_FRAME)
+        if cfg.foot_orientation == 0.:
+            unused_sensors.extend(G1.Sensors.FEET_QUAT)
+        self.mj_scene.edit.delete_sensors(unused_sensors)
+
        ### SET CONTACT PLAN
         # --- Contact plan feet ---
         N_feet_cnt = len(G1.Sensors.FEET_CONTACTS)
@@ -100,16 +107,16 @@ class G1RobotObjRef(TaskMjRef):
         self.contact_plan = np.zeros((self.T, N_cnt), dtype=np.int32)
 
         for i, foot_cnt in enumerate(G1.Sensors.FEET_CONTACTS):
-            self.contact_plan[:, i] = self.ref.sensor_data[foot_cnt][:T, 0]
+            self.contact_plan[:, i] = self.ref.sensor_data[foot_cnt][:self.T, 0]
         self.contact_plan[self.contact_plan > 1] = 1
 
         # --- Contact plan obj from ref ---
-        self.contact_plan[:, N_feet_cnt] = self.ref.sensor_data[G1.Sensors.OBJ_FLOOR_CONTACT[0]][:T, 0]
+        self.contact_plan[:, N_feet_cnt] = self.ref.sensor_data[G1.Sensors.OBJ_FLOOR_CONTACT[0]][:self.T, 0]
 
         # --- Contact plan hands ---
         contact_hand_ref = np.zeros((self.T, len(G1.Sensors.HAND_CONTACTS)), dtype=np.int32)
         for i, hand_cnt in enumerate(G1.Sensors.HAND_CONTACTS):
-            contact_hand_ref[:, i] = self.ref.sensor_data[hand_cnt][:T, 0]
+            contact_hand_ref[:, i] = self.ref.sensor_data[hand_cnt][:self.T, 0]
         
         # If the object is lifed:
         # Hands make contact slightly before and release slightly after

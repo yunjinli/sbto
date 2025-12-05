@@ -81,6 +81,9 @@ class TaskMjRef(TaskMj):
             weights: Union[Array, float] = 1.,
             weights_terminal: Optional[Union[Array, float]] = None,
         ) -> None:
+        if self._are_weights_zero(weights, weights_terminal):
+            return
+        
         self._check_reference_is_set()
 
         idx_x = np.atleast_1d(idx_x)
@@ -109,6 +112,9 @@ class TaskMjRef(TaskMj):
             weights: Union[Array, float] = 1.,
             weights_terminal: Optional[Union[Array, float]] = None,
         ) -> None:
+        if self._are_weights_zero(weights, weights_terminal):
+            return
+        
         self._check_reference_is_set()
 
         # Get sensordata idx

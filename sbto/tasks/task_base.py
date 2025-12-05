@@ -28,6 +28,12 @@ class OCPBase(ABC):
     def _check_cost_fn(self, f: CostFn, ref_values: Array, weights: Array) -> None:
         if not callable(f):
             raise ValueError("Cost function should be callable")
+        
+    def _are_weights_zero(self, weights, weights_terminal) -> bool:
+        return (
+            np.all(np.asarray(weights) == 0.) and 
+            (weights_terminal is None or np.all(np.asarray(weights_terminal) == 0.))
+            )
 
     @staticmethod
     def _normalize_cost_array(

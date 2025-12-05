@@ -407,7 +407,6 @@ class ModelEditor():
 
         for sns_name in sensor_name:
             if self.mj_spec.sensor(sns_name):
-                print(sns_name)
                 self.mj_spec.delete(self.mj_spec.sensor(sns_name))
 
     @with_callback()

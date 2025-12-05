@@ -36,7 +36,7 @@ cfg:
   obj_pos_weight: 20.
   obj_pos_weight_terminal: 40.
   obj_quat_weight: 2.
-  obj_quat_weight_terminal: 4.
+  obj_quat_weight_terminal: 5.
   obj_v_weight: 1.
   obj_w_weight: 1.
 

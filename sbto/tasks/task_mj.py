@@ -56,6 +56,9 @@ class TaskMj(OCPBase):
                      weights_terminal: Optional[Union[Array, float]] = None,
                      use_intial_as_ref: bool = False,
                      ) -> None:
+        if self._are_weights_zero(weights, weights_terminal):
+            return
+        
         idx_x = np.atleast_1d(idx_x)
         if np.any(idx_x >= self.mj_scene.Nx):
             raise ValueError(f"Invalid state index. Above {self.mj_scene.Nx}.")
@@ -84,6 +87,9 @@ class TaskMj(OCPBase):
                         weights_terminal: Optional[Union[Array, float]] = None,
                         use_intial_as_ref: bool = False,
                         ) -> None:
+        if self._are_weights_zero(weights, weights_terminal):
+            return
+        
         # Get sensordata idx
         idx_o = self.get_sensors_adr(sensor_name, sub_idx_sensor)
 
