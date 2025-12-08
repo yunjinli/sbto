@@ -1,6 +1,7 @@
 defaults:
   - task: g1/gait
   - solver: cem
+  - slurm: default
   - _self_
 
 # Description (as a suffix to rundir)
