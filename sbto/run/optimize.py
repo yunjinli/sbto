@@ -135,18 +135,20 @@ def optimize_incremental_opt(
     start = time.time()
 
     reset_best_knots_all = True
-    pbar_knots = trange(sim.Nknots-1, desc="Optimizing", leave=True)
+    pbar_knots = trange(sim.Nknots, desc="Optimizing", leave=True)
     pbar_postfix = {}
     nit_total = 0
 
     for N_knots_to_opt in pbar_knots:
-        N_knots_to_opt += 1  # starts with first 2 knots
+        # N_knots_to_opt += 1  # starts with first 2 knots
         nit = 0
         max_std_diag = np.inf
         pbar_knots.set_description_str(f"Opt. first {N_knots_to_opt+1} knots")
         pbar_it = trange(N_max_it_per_knots, leave=False)
-
-        t_end = sim.t_knots[N_knots_to_opt]
+        if N_knots_to_opt + 1 < sim.Nknots:
+            t_end = sim.t_knots[N_knots_to_opt + 1]
+        else:
+            t_end = sim.T
         N_var_to_opt = (N_knots_to_opt + 1) * sim.Nu
         solver.opt_first_dim(N_var_to_opt)
 
