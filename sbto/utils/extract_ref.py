@@ -141,6 +141,7 @@ class ReferenceMotion:
         t0: float = 0.,
         speedup: float = 1.0,
         z_offset: float = 0.0,
+        dt: float = 0.
     ):
         # Load base data
         base = load_npz_reference(ref_motion_path)
@@ -152,7 +153,9 @@ class ReferenceMotion:
 
         # Mujoco model properties
         self.mj_model = mj_model
-
+        self.act_ids = self.mj_model.actuator_trnid[:, 0]
+        self.act_qpos_adr = self.mj_model.jnt_qposadr[self.act_ids]
+    
         # Apply shift
         self.shift_start_time(t0)
 
@@ -161,6 +164,13 @@ class ReferenceMotion:
             self.qpos[:, 6] -= z_offset  # root_pos[2]
             self.qpos[:, -1] -= z_offset  # object_root_pos[2]
 
+        if self.mj_model is not None:
+            self.dt = self.mj_model.opt.timestep
+        elif dt == 0.:
+            raise ValueError("Enter 'dt' if mj_model is None.")
+        else:
+            self.dt = dt
+
         # Interpolate to MJ timestep
         self.interpolate_to_mj_dt()
 
@@ -168,15 +178,10 @@ class ReferenceMotion:
         self._qpos_dict = slice_reference(self.qpos)
 
         # Compute velocities
-        dt = self.mj_model.opt.timestep
-        self._vel_dict = compute_velocities(self._qpos_dict, dt)
+        self._vel_dict = compute_velocities(self._qpos_dict, self.dt)
 
         # Full state vector
         self.x = concatenate_full_state(self._qpos_dict, self._vel_dict)
-
-        # Precompute actuator addresses
-        act_ids = self.mj_model.actuator_trnid[:, 0]
-        self.act_qpos_adr = self.mj_model.jnt_qposadr[act_ids]
 
         self.sensor_data = {}
         self.extra = 0
@@ -186,13 +191,12 @@ class ReferenceMotion:
     # ------------------------------------------------------------
 
     def interpolate_to_mj_dt(self):
-        dt_mj = self.mj_model.opt.timestep
         dt_in = 1.0 / self.fps
 
-        if abs(dt_mj - dt_in) < 1e-9:
+        if abs(self.dt - dt_in) < 1e-9:
             return
 
-        t_new = np.arange(0, self.time[-1], dt_mj)
+        t_new = np.arange(0, self.time[-1], self.dt)
         self.qpos = interpolate_trajectory(self.qpos, self.time, t_new)
         self.time = t_new
 
