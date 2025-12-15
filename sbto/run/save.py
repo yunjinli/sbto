@@ -264,6 +264,7 @@ def save_results(
         "u": qdes_traj,
         "o": obs_traj,
         "c": top_costs,
+        "t_knots": sim.t_knots,
     }
 
     # Split state

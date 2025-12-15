@@ -46,6 +46,12 @@ class SimRolloutBase(ABC):
         # no scaling by default
         self.scaling = scaling
 
+    def randomize_t_knots(self, max: int, seed: int = 0):
+        rng = np.random.default_rng(seed)
+        N = len(self.t_knots) - 2
+        rand_steps = rng.integers(-max, max, N, endpoint=True)
+        self.t_knots[1:-1] += rand_steps
+
     def set_act_limits(self, q_min: Array, q_max: Array, q_nom: Optional[Array] = None):
         self.q_range = q_max - q_min
         if np.any(self.q_range < 0.):
