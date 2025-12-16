@@ -170,7 +170,7 @@ def update_cfg_from_warm_start(cfg, hydra_rundir: str):
             # copy motion path and Nknots
             cfg_warm_start = OmegaConf.create(cfg_dict)
             cfg.task.cfg_ref.motion_path = cfg_warm_start.task.cfg_ref.motion_path
-            cfg.task.sim.cfg.Nknots = cfg_warm_start.task.sim.cfg.Nknots
+            # cfg.task.sim.cfg.Nknots = cfg_warm_start.task.sim.cfg.Nknots
             # save yaml
 
             current_cfg_path = glob.glob(

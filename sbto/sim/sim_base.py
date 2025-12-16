@@ -50,6 +50,8 @@ class SimRolloutBase(ABC):
         rng = np.random.default_rng(seed)
         N = len(self.t_knots) - 2
         rand_steps = rng.integers(-max, max, N, endpoint=True)
+        min_dt = np.min(np.diff(self.t_knots))
+        rand_steps = np.clip(rand_steps, -min_dt // 2 + 1, min_dt // 2 - 1)
         self.t_knots[1:-1] += rand_steps
 
     def set_act_limits(self, q_min: Array, q_max: Array, q_nom: Optional[Array] = None):
