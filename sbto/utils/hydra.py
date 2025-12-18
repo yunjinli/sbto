@@ -32,10 +32,6 @@ def optimize_and_save_data(
     else:
         solver_state_0 = copy.deepcopy(solver.state)
 
-    # Randomize time of the knots for data diversity
-    if cfg.warm_start.rand_t_knots > 0:
-        sim.randomize_t_knots(cfg.warm_start.rand_t_knots, solver.cfg.seed)
-
     # Multiple_shooting
     if cfg.warm_start.multiple_shooting:
         if not isinstance(task, TaskMjRef):

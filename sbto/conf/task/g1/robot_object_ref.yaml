@@ -105,7 +105,7 @@ sim:
   cfg:
     _target_: sbto.sim.sim_mj_rollout.ConfigMjRollout
     T: 500
-    Nknots: 25
+    Nknots: 20
     interp_kind: pchip
     Nthread: -1
     _chunk_size: 2
