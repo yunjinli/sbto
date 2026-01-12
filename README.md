@@ -38,5 +38,5 @@ unizip robot-object.zip
 
 ### Test
 ```python
-python3 sbto/main.py task=g1/robot_object_ref warm_start=incremental task.cfg_ref.motion_path="datasets/robot-object/datasets/robot-object/sub10_largebox_000_original.npz"
+python3 sbto/main.py task=g1/robot_object_ref warm_start=incremental task.cfg_ref.motion_path="datasets/robot-object/sub10_largebox_000_original.npz"
 ```
