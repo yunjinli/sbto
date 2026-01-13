@@ -308,6 +308,8 @@ class MjScene():
                     self.edit.add_cylinder(name=name, **kwargs)
                 case "sphere":
                     self.edit.add_sphere(name=name, **kwargs)
+                case "urdf":
+                    self.edit.add_urdf(name=name, **kwargs)
     
     def add_keyframes(self):
         if isinstance(self.cfg.xml_keyframes_path, str):

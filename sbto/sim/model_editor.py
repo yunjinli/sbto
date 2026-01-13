@@ -5,7 +5,7 @@ from functools import wraps
 
 class ModelEditor():
     DEFAULT_NAME = "static"
-    AVAILABLE_GEOM = ["box", "cylinder", "sphere"]
+    AVAILABLE_GEOM = ["box", "cylinder", "sphere", "urdf"]
 
     def __init__(self, xml_path, callback_fn: Optional[Callable[[mujoco.MjModel], Any]] = None):
         self.xml_path = xml_path
@@ -155,6 +155,42 @@ class ModelEditor():
         geom.name = name
         geom.mass = 1.
         self._set_attr_from_kwargs(geom, **kwargs)
+        
+    def add_urdf(
+        self,
+        urdf_path: str,
+        pos: np.ndarray = np.zeros(3),
+        euler: np.ndarray = np.zeros(3),
+        rgba: Optional[List[float]] = None,
+        name: str = "",
+        bodyname: str = "",
+        freejoint: bool = False,
+        **kwargs,
+    ) -> None:
+        """
+        Add an object defined by a URDF file as a subtree in this model.
+        """
+        # 1. Load the URDF into a temporary Spec
+        urdf_spec = mujoco.MjSpec.from_file(urdf_path)
+        
+        # 2. Find the target parent in the main spec
+        if bodyname:
+            # Use find_body to look up the parent body by name
+            parent = self.mj_spec.body(bodyname)
+            if parent is None:
+                raise ValueError(f"Parent body '{bodyname}' not found")
+        else:
+            parent = self.mj_spec.worldbody
+
+        # 5. Add a freejoint if requested (usually for the root body)
+        if freejoint:
+            parent.add_freejoint()
+
+        # Create a frame to handle the position and orientation offset
+        frame = parent.add_frame()
+        frame.pos = pos
+        frame.quat = self._to_quat(euler)
+        self.mj_spec.attach(urdf_spec, frame=frame)
 
     def add_box(
         self,

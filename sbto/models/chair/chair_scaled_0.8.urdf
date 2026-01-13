@@ -1,0 +1,231 @@
+<?xml version="1.0"?>
+<robot name="chair">
+
+  <!-- Base link at the top of the front right leg -->
+  <link name="chair_link">
+    <visual>
+      <geometry>
+        <sphere radius="0.0005932584269662922"/>
+      </geometry>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <material name="invisible">
+        <color rgba="0 0 0 0"/>
+      </material>
+    </visual>
+    <collision name="chair">
+      <geometry>
+        <sphere radius="0.0005932584269662922"/>
+      </geometry>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.00020880060257968795"/>
+      <inertia ixx="7.348853325284146e-08" ixy="0.0" ixz="0.0" iyy="7.348853325284146e-08" iyz="0.0" izz="7.348853325284146e-08"/>
+    </inertial>
+  </link>
+
+  <!-- Base link at the top of the front right leg -->
+  <link name="base">
+    <visual>
+      <geometry>
+        <sphere radius="0.0005932584269662922"/>
+      </geometry>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <material name="invisible">
+        <color rgba="0 0 0 0"/>
+      </material>
+    </visual>
+    <inertial>
+      <mass value="0.00020880060257968795"/>
+      <inertia ixx="7.348853325284146e-08" ixy="0.0" ixz="0.0" iyy="7.348853325284146e-08" iyz="0.0" izz="7.348853325284146e-08"/>
+    </inertial>
+  </link>
+
+  <!-- Seat -->
+  <link name="seat">
+    <visual>
+      <geometry>
+        <box size="0.21357303370786518 0.23137078651685394 0.011865168539325843"/>
+      </geometry>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <material name="wood">
+        <color rgba="0.6 0.4 0.2 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.21357303370786518 0.23137078651685394 0.011865168539325843"/>
+      </geometry>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.20880060257968794"/>
+      <inertia ixx="0.0008818623990340976" ixy="0.0" ixz="0.0" iyy="0.0007348853325284146" iyz="0.0" izz="0.0014697706650568293"/>
+    </inertial>
+  </link>
+
+  <!-- Front left leg -->
+  <link name="front_left_leg">
+    <visual>
+      <geometry>
+        <cylinder radius="0.011865168539325843" length="0.26103370786516855"/>
+      </geometry>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <material name="wood">
+        <color rgba="0.6 0.4 0.2 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder radius="0.011865168539325843" length="0.26103370786516855"/>
+      </geometry>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.0020880060257968793"/>
+      <inertia ixx="7.348853325284147e-05" ixy="0.0" ixz="0.0" iyy="7.348853325284147e-05" iyz="0.0" izz="7.3488533252841466e-06"/>
+    </inertial>
+  </link>
+
+  <!-- Front right leg -->
+  <link name="front_right_leg">
+    <visual>
+      <geometry>
+        <cylinder radius="0.011865168539325843" length="0.26103370786516855"/>
+      </geometry>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <material name="wood">
+        <color rgba="0.6 0.4 0.2 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder radius="0.011865168539325843" length="0.26103370786516855"/>
+      </geometry>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.0020880060257968793"/>
+      <inertia ixx="7.348853325284147e-05" ixy="0.0" ixz="0.0" iyy="7.348853325284147e-05" iyz="0.0" izz="7.3488533252841466e-06"/>
+    </inertial>
+  </link>
+
+  <!-- Back left leg -->
+  <link name="back_left_leg">
+    <visual>
+      <geometry>
+        <cylinder radius="0.011865168539325843" length="0.26103370786516855"/>
+      </geometry>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <material name="wood">
+        <color rgba="0.6 0.4 0.2 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder radius="0.011865168539325843" length="0.26103370786516855"/>
+      </geometry>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.0020880060257968793"/>
+      <inertia ixx="7.348853325284147e-05" ixy="0.0" ixz="0.0" iyy="7.348853325284147e-05" iyz="0.0" izz="7.3488533252841466e-06"/>
+    </inertial>
+  </link>
+
+  <!-- Back right leg -->
+  <link name="back_right_leg">
+    <visual>
+      <geometry>
+        <cylinder radius="0.011865168539325843" length="0.26103370786516855"/>
+      </geometry>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <material name="wood">
+        <color rgba="0.6 0.4 0.2 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder radius="0.011865168539325843" length="0.26103370786516855"/>
+      </geometry>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.0020880060257968793"/>
+      <inertia ixx="7.348853325284147e-05" ixy="0.0" ixz="0.0" iyy="7.348853325284147e-05" iyz="0.0" izz="7.3488533252841466e-06"/>
+    </inertial>
+  </link>
+
+  <!-- Backrest (tilted back support) -->
+  <link name="backrest">
+    <visual>
+      <geometry>
+        <box size="0.21357303370786518 0.008898876404494382 0.24323595505617976"/>
+      </geometry>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <material name="wood">
+        <color rgba="0.6 0.4 0.2 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.21357303370786518 0.008898876404494382 0.24323595505617976"/>
+      </geometry>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.10440030128984397"/>
+      <inertia ixx="0.0008818623990340976" ixy="0.0" ixz="0.0" iyy="0.0014697706650568293" iyz="0.0" izz="0.0007348853325284146"/>
+    </inertial>
+  </link>
+
+  <!-- Joint connecting base_link to seat -->
+
+  <joint name="baselink_to_base" type="fixed">
+    <parent link="chair_link"/>
+    <child link="base"/>
+    <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+  </joint>
+
+  <joint name="base_to_seat" type="fixed">
+    <parent link="base"/>
+    <child link="seat"/>
+    <origin xyz="0.09492134831460675 -0.10678651685393259 0.0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Joint connecting front left leg to seat -->
+  <joint name="seat_to_front_left_leg" type="fixed">
+    <parent link="seat"/>
+    <child link="front_left_leg"/>
+    <origin xyz="0.08898876404494382 0.08898876404494382 -0.1364494382022472" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Joint connecting front right leg to seat -->
+  <joint name="seat_to_front_right_leg" type="fixed">
+    <parent link="seat"/>
+    <child link="front_right_leg"/>
+    <origin xyz="0.08898876404494382 -0.08898876404494382 -0.1364494382022472" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Joint connecting back left leg to seat -->
+  <joint name="seat_to_back_left_leg" type="fixed">
+    <parent link="seat"/>
+    <child link="back_left_leg"/>
+    <origin xyz="-0.08898876404494382 0.08898876404494382 -0.1364494382022472" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Joint connecting back right leg to seat -->
+  <joint name="seat_to_back_right_leg" type="fixed">
+    <parent link="seat"/>
+    <child link="back_right_leg"/>
+    <origin xyz="-0.08898876404494382 -0.08898876404494382 -0.1364494382022472" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Joint connecting backrest to seat (tilted back 15 degrees) -->
+  <joint name="seat_to_backrest" type="fixed">
+    <parent link="seat"/>
+    <child link="backrest"/>
+    <origin xyz="0.0 -0.1364494382022472 0.11865168539325843" rpy="0.21 0 0"/>
+  </joint>
+
+</robot>
