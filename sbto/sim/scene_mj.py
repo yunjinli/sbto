@@ -51,32 +51,6 @@ class ConfigMjScene():
             }
         Additional MuJoCo geom parameters can also be included.
 
-    scale_q : float | tuple
-        Scale factor or range for randomizing initial positions (qpos).
-
-    scale_v : float | tuple
-        Scale factor or range for randomizing initial velocities (qvel).
-
-    is_floating_base : bool
-        If True, treat the main object as having a free-floating base (6-DOF).
-
-    obj_qpos_id : tuple
-        Indices in the qpos vector corresponding to the target object.
-
-    N_rollout_steps : int
-        Number of simulation steps to perform per rollout.
-
-    obj_x_range : Tuple[float, float]
-        Range of x-axis randomization for object initialization.
-
-    obj_y_range : Tuple[float, float]
-        Range of y-axis randomization for object initialization.
-
-    obj_z_range : Tuple[float, float]
-        Range of z-axis randomization for object initialization.
-
-    obj_w_range : Tuple[float, float]
-        Range of object orientation (yaw or quaternion w-component) randomization.
     """
     # base scene path
     xml_scene_path: str
@@ -84,18 +58,6 @@ class ConfigMjScene():
     xml_contact_pairs_path: str | List[str] = ""
     xml_keyframes_path: str | List[str] = ""
     add_body: Dict[str, Any] = field(default_factory=lambda: {})
-    # random state initialization
-    scale_q : tuple = (0.1, )
-    scale_v : tuple = (0.1, )
-    obj_x_range: Tuple[float, float] = (0.0, 0.0)
-    obj_y_range: Tuple[float, float] = (0.0, 0.0)
-    obj_z_range: Tuple[float, float] = (0.0, 0.0)
-    obj_w_range: Tuple[float, float] = (0.0, 0.0)
-    _target_:str = "sbto.sim.scene_mj.MjScene"
-
-    # def __post_init__(self):
-    #     self._filename = "config_scene.yaml"
-    #     self.class_path = "sbto.sim.scene_mj.MjScene"
 
 class MjScene():
     def __init__(self, cfg: ConfigMjScene):
