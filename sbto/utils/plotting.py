@@ -155,8 +155,8 @@ def plot_costs(
         title (str): Title for the plot.
     """
     all_costs = np.asarray(all_costs)
-    # max cost is max cost at iteration 0 (remove outliers)
-    max_lim_cost = 3. * np.mean(all_costs[0, :])
+    # max cost is mean cost at iteration -1 (remove outliers)
+    max_lim_cost = 3. * np.mean(all_costs[-1, :])
     all_costs = np.clip(all_costs, None, max_lim_cost)
     Nit = all_costs.shape[0]
     plt.close('all')

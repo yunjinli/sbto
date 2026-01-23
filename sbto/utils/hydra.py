@@ -51,7 +51,7 @@ def optimize_and_save_data(
     else:
         optimizer_fn = optimize_single_shooting
     
-    solver_state_final, all_samples, all_costs, opt_stats = optimizer_fn(
+    solver_state_final, all_samples, best_samples_it, all_costs, opt_stats = optimizer_fn(
         sim,
         task,
         solver,
@@ -65,6 +65,7 @@ def optimize_and_save_data(
         solver_state_0,
         solver_state_final,
         all_samples,
+        best_samples_it,
         all_costs,
         cfg.exp_name,
         cfg.description,
@@ -72,6 +73,7 @@ def optimize_and_save_data(
         cfg.data_processing.save_fig,
         cfg.data_processing.save_video,
         cfg.data_processing.save_samples_costs,
+        cfg.data_processing.save_best_samples_it,
         cfg.warm_start.multiple_shooting,
         cfg.data_processing.split_state,
         cfg.data_processing.save_top,
