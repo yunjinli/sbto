@@ -48,8 +48,11 @@ def _optimize(
     init_state_solver: Optional[SolverState] = None,
     opt_stats: Optional[OptimizationStats] = None,
     ) -> Tuple[SolverState, Array, Array]:
+    
     all_costs = []
     all_samples = []
+    best_samples_it = []
+
     pbar = trange(solver.cfg.N_it, desc="Optimizing", leave=True)
     pbar_postfix = {}
 
@@ -71,6 +74,8 @@ def _optimize(
         solver.update(samples, costs)
         opt_stats.end_iteration()
 
+        best_samples_it.append(solver.state.best.copy())
+
         pbar_postfix["min_cost"] = solver.state.min_cost_all
         pbar_postfix["cost"] = solver.state.min_cost
 
@@ -84,7 +89,7 @@ def _optimize(
     all_costs_arr = np.asarray(all_costs)
     last_solver_state = copy.deepcopy(solver.state)
 
-    return last_solver_state, all_samples_arr, all_costs_arr, opt_stats
+    return last_solver_state, all_samples_arr, best_samples_it, all_costs_arr, opt_stats
 
 def optimize_single_shooting(
     sim: SimRolloutBase,
@@ -128,8 +133,10 @@ def optimize_incremental_opt(
     min_std_next: float = 1.e-2,
     min_std_final: float = 1.e-3,
     ) -> Tuple[SolverState, Array, Array]:
+
     all_costs = []
     all_samples = []
+    best_samples_it = []
 
     if not init_state_solver is None:
         solver.state = copy.deepcopy(init_state_solver)
@@ -140,7 +147,7 @@ def optimize_incremental_opt(
     start = time.time()
 
     reset_best_knots_all = True
-    pbar_knots = trange(sim.Nknots, desc="Optimizing", leave=True)
+    pbar_knots = trange(2, sim.Nknots+1, desc="Optimizing", leave=True)
     pbar_postfix = {}
     nit_total = 0
 
@@ -148,25 +155,21 @@ def optimize_incremental_opt(
         nit = 0
         max_std_diag = np.inf
         
-        if N_knots_to_opt + 1 < sim.Nknots:
-            t_end = sim.t_knots[N_knots_to_opt + 1]
-        else:
-            t_end = sim.T
-        N_var_to_opt = (N_knots_to_opt + 1) * sim.Nu
+        t_end = sim.t_knots[N_knots_to_opt-1]
+        N_var_to_opt = N_knots_to_opt * sim.Nu
         solver.opt_first_dim(N_var_to_opt)
-
-        all_knots_optimized = N_knots_to_opt == sim.Nknots-1
+        all_knots_optimized = N_knots_to_opt == sim.Nknots
 
         # For last iterations
         if all_knots_optimized:
             min_std_next = min_std_final
-            N_max_it_per_knots *= 10
+            N_max_it_per_knots *= 2
 
-        pbar_knots.set_description_str(f"Opt. first {N_knots_to_opt+1} knots")
+        pbar_knots.set_description_str(f"Opt. first {N_knots_to_opt} knots")
         pbar_it = trange(N_max_it_per_knots, leave=False)
 
         while min_std_next < max_std_diag and nit < N_max_it_per_knots:
-            opt_stats.add_iteration(N_knots_to_opt+1, t_end)
+            opt_stats.add_iteration(N_knots_to_opt, t_end)
             # Reset best knots when all knots are optimized
             if reset_best_knots_all and all_knots_optimized:
                 solver.state.min_cost_all = np.inf
@@ -178,6 +181,7 @@ def optimize_incremental_opt(
 
             costs = compute_cost_t_end(samples, sim, task, t_end=t_end)
             all_costs.append(costs)
+            best_samples_it.append(solver.state.best.copy())
 
             solver.update(samples, costs)
             opt_stats.end_iteration()
@@ -199,8 +203,8 @@ def optimize_incremental_opt(
     duration = end - start
     print(f"Solving time: {duration:.2f}s")
 
-    all_samples_arr = np.asarray(all_samples)
     all_costs_arr = np.asarray(all_costs)
+    all_samples_arr = np.asarray(all_samples)
     last_solver_state = copy.deepcopy(solver.state)
 
-    return last_solver_state, all_samples_arr, all_costs_arr, opt_stats
+    return last_solver_state, all_samples_arr, best_samples_it, all_costs_arr, opt_stats

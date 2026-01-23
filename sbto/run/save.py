@@ -27,6 +27,7 @@ TRAJ_FILENAME = "time_x_u_traj"
 ROLLOUT_FILENAME = "rollout_time_x_u_obs_traj"
 SOLVER_STATES_DIR = "./solver_states"
 ALL_SAMPLES_COSTS_FILENAME = "samples_costs"
+BEST_SAMPLES_IT_FILENAME = "best_samples_it"
 SOLVER_STATE_NAME = "solver_state"
 INITIAL_SOLVER_STATE_SUFFIX = "0"
 FINAL_SOLVER_STATE_SUFFIX = "final"
@@ -57,7 +58,7 @@ def save_trajectories(
     u_traj
     ) -> None:
 
-    np.savez(
+    np.savez_compressed(
         os.path.join(dir_path, f"{TRAJ_FILENAME}.npz"),
         time=time,
         x=x_traj,
@@ -72,7 +73,7 @@ def save_rollout(
     obs_traj,
     costs = []
     ) -> None:
-    np.savez(
+    np.savez_compressed(
         os.path.join(dir_path, f"{ROLLOUT_FILENAME}.npz"),
         time=time,
         x=x_traj,
@@ -200,6 +201,7 @@ def save_results(
     solver_state_0: SolverState,
     solver_state_final: SolverState,
     all_samples: Array,
+    best_samples_it: List[Array],
     all_costs: Array,
     exp_name: str = "",
     description: str = "",
@@ -207,6 +209,7 @@ def save_results(
     save_fig: bool = True,
     save_video: bool = True,
     save_samples_costs: bool = True,
+    save_best_samples_it: bool = True,
     multiple_shooting: bool = False,
     split_state: bool = False,
     save_top: float = 0.,
@@ -241,7 +244,15 @@ def save_results(
         else:
             print(f"Saving all samples and costs.")
         save_all_samples_and_cost(result_dir, all_samples, last_costs)
-    
+
+    if save_best_samples_it:
+        data = {str(i) : sample for i, sample in enumerate(best_samples_it)}
+        data["c"] = np.min(all_costs, axis=0)
+        np.savez_compressed(
+            os.path.join(result_dir, f"{BEST_SAMPLES_IT_FILENAME}.npz"),
+            **data
+        )
+
     # Rollout best trajectories (with initial states)
     N_top_samples = 1 # Save the best one by default
     if save_top > 0.:
@@ -287,7 +298,7 @@ def save_results(
     # Save best
     file_path = os.path.join(result_dir, f"{BEST_TRAJECTORY_FILENAME}.npz")
     if N_top_samples == 1:
-        best_data = data_traj
+        best_data = data_traj.copy()
     else:
         arg_min_cost = np.argmin(top_costs)
         best_data = {k: np.squeeze(v[arg_min_cost]) for k, v in data_traj.items()}
