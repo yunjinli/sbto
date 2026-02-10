@@ -24,7 +24,7 @@ cfg:
     obj:
       type: box
       pos: [0., 0., 0.0105]
-      size: [0.2, 0.2, 0.18] # Using a larger box to detect hand contact
+      size: [0.155, 0.155, 0.17] # Using a larger box to detect hand contact
       euler: [3.05, 0.11, 1.11]
       mass: 0.6
       rgba: [0.3, 0.3, 0.3, 1.0]
