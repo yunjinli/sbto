@@ -256,10 +256,10 @@ class MjScene():
         for name, kwargs in self.cfg.add_body.items():
             # get geom type
             geom_type = kwargs["type"]
-            if not geom_type in self.edit.AVAILABLE_GEOM:
+            if geom_type not in self.edit.AVAILABLE_GEOM:
                 geom_type = "body_only"
 
-            kwargs = {k:v for k, v in kwargs.items() if not k in INVALID_KWARGS}
+            kwargs = {k:v for k, v in kwargs.items() if k not in INVALID_KWARGS}
 
             match geom_type:
                 case "body_only":
@@ -272,6 +272,8 @@ class MjScene():
                     self.edit.add_sphere(name=name, **kwargs)
                 case "urdf":
                     self.edit.add_urdf(name=name, **kwargs)
+                case "mesh":
+                    self.edit.add_mesh(name=name, **kwargs)
     
     def add_keyframes(self):
         if isinstance(self.cfg.xml_keyframes_path, str):

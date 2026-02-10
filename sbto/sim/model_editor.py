@@ -2,10 +2,11 @@ import mujoco
 import numpy as np
 from typing import List, Dict, Optional, Callable, Any
 from functools import wraps
+import os
 
 class ModelEditor():
     DEFAULT_NAME = "static"
-    AVAILABLE_GEOM = ["box", "cylinder", "sphere", "urdf"]
+    AVAILABLE_GEOM = ["box", "cylinder", "sphere", "urdf", "mesh"]
 
     def __init__(self, xml_path, callback_fn: Optional[Callable[[mujoco.MjModel], Any]] = None):
         self.xml_path = xml_path
@@ -156,6 +157,7 @@ class ModelEditor():
         geom.mass = 1.
         self._set_attr_from_kwargs(geom, **kwargs)
         
+    @with_callback()
     def add_urdf(
         self,
         urdf_path: str,
@@ -170,19 +172,27 @@ class ModelEditor():
         """
         Add an object defined by a URDF file as a subtree in this model.
         """
-        # 1. Load the URDF into a temporary Spec
+        # Load the URDF into a temporary Spec
         urdf_spec = mujoco.MjSpec.from_file(urdf_path)
-        
-        # 2. Find the target parent in the main spec
+
+        # Find the target parent in the main spec
         if bodyname:
             # Use find_body to look up the parent body by name
             parent = self.mj_spec.body(bodyname)
             if parent is None:
                 raise ValueError(f"Parent body '{bodyname}' not found")
         else:
-            parent = self.mj_spec.worldbody
+            if name:
+                parent = self.add_body(name=name)
+            else:
+                parent = self.mj_spec.worldbody
 
-        # 5. Add a freejoint if requested (usually for the root body)
+        # Change color:
+        if rgba is not None:
+            for geom in urdf_spec.geoms:
+                geom.rgba = rgba
+
+        # Add a freejoint if requested (usually for the root body)
         if freejoint:
             parent.add_freejoint()
 
@@ -191,6 +201,69 @@ class ModelEditor():
         frame.pos = pos
         frame.quat = self._to_quat(euler)
         self.mj_spec.attach(urdf_spec, frame=frame)
+
+    @with_callback()
+    def add_mesh(
+        self,
+        mesh_path: str,
+        pos: np.ndarray = np.zeros(3),
+        euler: np.ndarray = np.zeros(3),
+        rgba: Optional[List[float]] = None,
+        name: str = "",
+        bodyname: str = "",
+        freejoint: bool = False,
+        **kwargs,
+    ) -> None:
+        """
+        Add an object defined by a URDF file as a subtree in this model.
+        """
+        if not name:
+            filename = os.path.split(mesh_path)[-1]
+            name = os.path.splitext(filename)[0]
+
+        mesh_full_path = os.path.join(self.mj_spec.modelfiledir, self.mj_spec.meshdir, mesh_path)
+        with open(mesh_full_path, "r") as f:
+            mesh_asset = f.readlines()
+
+        # Add mesh to the spec
+        self.mj_spec.add_mesh(file=mesh_path, name=name+"_mesh")
+        # print(dir(self.mj_spec))
+        # print(self.mj_spec.compiler.meshdir)
+        # print(self.mj_spec.assets)
+        # print(self.mj_spec.modelfiledir)
+        # print(self.mj_spec.meshes)
+        # print(self.mj_spec.meshdir)
+        self.mj_spec.assets.update({
+            mesh_path : "".join(mesh_asset)
+        })
+        # mesh.name = name
+
+        # Find the target parent in the main spec
+        if bodyname:
+            # Use find_body to look up the parent body by name
+            parent = self.mj_spec.body(bodyname)
+            if parent is None:
+                raise ValueError(f"Parent body '{bodyname}' not found")
+            if freejoint:
+                parent.add_freejoint()
+        else:
+            if name:
+                parent = self.add_body(name=name)
+            else:
+                parent = self.mj_spec.worldbody
+
+        geom = parent.add_geom()
+        geom.pos = pos
+        geom.quat = self._to_quat(euler)
+        geom.pos = pos
+        geom.quat = self._to_quat(euler)
+        geom.meshname = name+"_mesh"
+        geom.type = mujoco.mjtGeom.mjGEOM_MESH
+        if rgba is not None:
+            geom.rgba = rgba
+        geom.name = name
+        geom.mass = 1.
+        self._set_attr_from_kwargs(geom, **kwargs)
 
     def add_box(
         self,
