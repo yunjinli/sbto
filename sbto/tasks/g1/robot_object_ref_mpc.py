@@ -82,7 +82,7 @@ class G1RobotObjRef(TaskMjRef):
             *G1.Sensors.HAND_POS_OBJ_FRAME,
             *G1.Sensors.HAND_QUAT_OBJ_FRAME,
         ]
-        self.ref.add_sensor_data(sensor_names)
+        self.ref.compute_sensor_data(sensor_names)
         sim.set_initial_state(self.ref.x0)
         q_min = sim.mj_scene.q_min
         q_max = sim.mj_scene.q_max

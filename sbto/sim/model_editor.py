@@ -226,13 +226,8 @@ class ModelEditor():
             mesh_asset = f.readlines()
 
         # Add mesh to the spec
-        self.mj_spec.add_mesh(file=mesh_path, name=name+"_mesh")
-        # print(dir(self.mj_spec))
-        # print(self.mj_spec.compiler.meshdir)
-        # print(self.mj_spec.assets)
-        # print(self.mj_spec.modelfiledir)
-        # print(self.mj_spec.meshes)
-        # print(self.mj_spec.meshdir)
+        mesh_name = f"{name}_mesh"
+        self.mj_spec.add_mesh(file = mesh_path, name = mesh_name)
         self.mj_spec.assets.update({
             mesh_path : "".join(mesh_asset)
         })
@@ -257,7 +252,7 @@ class ModelEditor():
         geom.quat = self._to_quat(euler)
         geom.pos = pos
         geom.quat = self._to_quat(euler)
-        geom.meshname = name+"_mesh"
+        geom.meshname = mesh_name
         geom.type = mujoco.mjtGeom.mjGEOM_MESH
         if rgba is not None:
             geom.rgba = rgba
@@ -305,7 +300,7 @@ class ModelEditor():
                 **kwargs,
             )
         return i
-    
+
     def add_sphere(
         self,
         pos : np.ndarray,

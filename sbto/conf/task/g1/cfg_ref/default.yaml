@@ -4,4 +4,6 @@ t0: 0.
 t_end: 0.
 speedup: 1.0
 z_offset: 0.0
+flip_quat_pos: True
+quat_wxyz: True
 override_T_sim: True

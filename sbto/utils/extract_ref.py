@@ -1,130 +1,67 @@
-import pickle
 import mujoco
 import numpy as np
 from scipy.interpolate import interp1d
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
+from sbto.sim.scene_mj import MjScene
 from sbto.utils.finite_diff import (
     finite_diff_qpos_traj_high_order,
     finite_diff_quat_traj,
 )
 
-
-# ------------------------------------------------------------
-# Utility functions
-# ------------------------------------------------------------
-
 def normalize_quat(q: np.ndarray) -> np.ndarray:
     """Normalize quaternion array [T,4]."""
     return q / np.linalg.norm(q, axis=-1, keepdims=True)
-
 
 def quat_xyzw_to_wxyz(q: np.ndarray) -> np.ndarray:
     """Convert quaternion [x,y,z,w] -> [w,x,y,z]."""
     return np.column_stack([q[:, 3], q[:, :3]])
 
+def flip_quat_pos_in_traj(free_joint_traj: np.ndarray) -> np.ndarray:
+    """Convert free joint [quat, pos] -> [pos, quat]."""
+    free_joint_traj_flipped = np.empty_like(free_joint_traj)
+    free_joint_traj_flipped[:, :3] = free_joint_traj[:, -3:]
+    free_joint_traj_flipped[:, 3:] = free_joint_traj[:, :-3]
+    return free_joint_traj_flipped
 
 def compute_time_array(fps: float, N: int) -> np.ndarray:
     return np.arange(N) / fps
-
-
-# ------------------------------------------------------------
-# Loading NPZ reference
-# ------------------------------------------------------------
 
 def load_npz_reference(path: str) -> Dict[str, np.ndarray]:
     """
     Loads reference from NPZ and extracts the required qpos fields.
     Only returns minimal dict: qpos, fps.
     """
-    file = np.load(path)
+    file = np.load(path, mmap_mode="r")
     qpos = file["qpos"]
-    fps = file["fps"].item() if isinstance(file["fps"], np.ndarray) else file["fps"]
+    fps = int(file["fps"])
 
     return {
         "qpos": qpos,
         "fps": float(fps),
     }
 
-
-# ------------------------------------------------------------
-# Trajectory processing utilities
-# ------------------------------------------------------------
+def make_quaternions_continuous(quat_traj: np.ndarray):
+    """
+    Ensures that quaternions are continuous with sign flip.
+    """
+    quat_dot_prod = np.sum(quat_traj[:-1, :] * quat_traj[1:, :], axis=-1)
+    sign_flip = np.argwhere(quat_dot_prod < 0) + 1
+    for id in sign_flip:
+        quat_traj[np.squeeze(id):, :] *= -1
+    return quat_traj
 
 def interpolate_trajectory(
     values: np.ndarray, time: np.ndarray, t_new: np.ndarray, is_quat=False
 ):
     """Generic interpolation for batched arrays."""
-    interp = interp1d(time, values, axis=0)
-    out = interp(t_new)
-    return normalize_quat(out) if is_quat else out
-
-
-def compute_velocities(qpos_dict: Dict[str, np.ndarray], dt: float) -> Dict[str, np.ndarray]:
-    """Compute velocities for root/dof/object segments."""
-    out = {}
-
-    # Root
-    out["root_v"] = finite_diff_qpos_traj_high_order(qpos_dict["root_pos"], dt)
-    out["root_w"] = finite_diff_quat_traj(qpos_dict["root_rot"], dt)
-
-    # DOF
-    out["dof_v"] = finite_diff_qpos_traj_high_order(qpos_dict["dof_pos"], dt)
-
-    # Object (optional)
-    if "object_root_pos" in qpos_dict:
-        out["object_v"] = finite_diff_qpos_traj_high_order(qpos_dict["object_root_pos"], dt)
-        out["object_w"] = finite_diff_quat_traj(qpos_dict["object_rot"], dt)
-
-    return out
-
-
-def slice_reference(qpos: np.ndarray) -> Dict[str, np.ndarray]:
-    """
-    Splits qpos into semantic blocks.
-    Assumes layout:
-        [quat(4), root_pos(3), dof(...), object_rot(4), object_pos(3)]
-    """
-    root_rot = qpos[:, :4]
-    root_pos = qpos[:, 4:7]
-
-    # Middle = robot DOF, last 7 = object (quat + pos)
-    dof_pos = qpos[:, 7:-7]
-    object_rot = qpos[:, -7:-3]
-    object_pos = qpos[:, -3:]
-
-    return {
-        "root_rot": root_rot,
-        "root_pos": root_pos,
-        "dof_pos": dof_pos,
-        "object_rot": object_rot,
-        "object_root_pos": object_pos,
-    }
-
-
-def concatenate_full_state(qpos_dict, vel_dict) -> np.ndarray:
-    qpos = np.hstack([
-        qpos_dict["root_pos"],
-        qpos_dict["root_rot"],
-        qpos_dict["dof_pos"],
-        qpos_dict.get("object_root_pos", []),
-        qpos_dict.get("object_rot", []),
-    ])
-
-    qvel = np.hstack([
-        vel_dict["root_v"],
-        vel_dict["root_w"],
-        vel_dict["dof_v"],
-        vel_dict.get("object_v", []),
-        vel_dict.get("object_w", []),
-    ])
-
-    return np.hstack([qpos, qvel])
-
-
-# ------------------------------------------------------------
-# Main Class
-# ------------------------------------------------------------
+    if is_quat:
+        values = make_quaternions_continuous(values)
+        interp = interp1d(time, values, axis=0, copy=False, assume_sorted=True)
+        return normalize_quat(interp(t_new))
+    else:
+        interp = interp1d(time, values, kind="cubic", axis=0, copy=False, assume_sorted=True)
+        return interp(t_new)
 
 class ReferenceMotion:
     """
@@ -133,77 +70,51 @@ class ReferenceMotion:
     - Everything else is provided via properties:
         root_pos, root_rot, dof_pos, etc.
     """
-
     def __init__(
         self,
+        mj_scene: MjScene,
         ref_motion_path: str,
-        mj_model: mujoco.MjModel,
-        t0: float = 0.,
-        t_end: float = 0.,
+        t0: float = 0.0,
+        t_end: float = 0.0,
         speedup: float = 1.0,
         z_offset: float = 0.0,
-        dt: float = 0.
+        flip_quat_pos: bool = True,
+        quat_wxyz: bool = True,
     ):
+        self.mj_scene = mj_scene
+        self.dt = self.mj_scene.dt
+        self.sensor_data = {}
+
         # Load base data
         base = load_npz_reference(ref_motion_path)
         self.fps = base["fps"] * speedup
-        self.qpos = base["qpos"]
+        self._qpos = base["qpos"]
 
-        # Initial time array
-        self.time = compute_time_array(self.fps, len(self.qpos))
+        # Fix quaterion format
+        if self.mj_scene.is_floating_base:
+            base_qpos = np.concatenate((
+                self.mj_scene.base_pos_adr,
+                self.mj_scene.base_quat_adr
+                ))
+            if flip_quat_pos:
+                self._qpos[:, base_qpos] = flip_quat_pos_in_traj(self._qpos[:, base_qpos])
+            if not quat_wxyz:
+                self._qpos[:, base_qpos] = quat_xyzw_to_wxyz(self._qpos[:, base_qpos])
 
-        self.mj_model = mj_model
-        if self.mj_model is not None:
-            self.act_ids = self.mj_model.actuator_trnid[:, 0]
-            self.act_qpos_adr = self.mj_model.jnt_qposadr[self.act_ids]
-    
-        # Apply shift
+        if self.mj_scene.is_obj:
+            obj_qpos = self.mj_scene.obj_qpos_adr
+            if flip_quat_pos:
+                self._qpos[:, obj_qpos] = flip_quat_pos_in_traj(self._qpos[:, obj_qpos])
+            if not quat_wxyz:
+                self._qpos[:, obj_qpos] = quat_xyzw_to_wxyz(self._qpos[:, obj_qpos])
+
+        self.time = compute_time_array(self.fps, len(self._qpos))
         self.trim_traj(t0, t_end)
-
-        # Apply z-offset
-        if z_offset != 0:
-            self.qpos[:, 6] -= z_offset  # root_pos[2]
-            self.qpos[:, -1] -= z_offset  # object_root_pos[2]
-
-        if self.mj_model is not None:
-            self.dt = self.mj_model.opt.timestep
-        elif dt == 0.:
-            raise ValueError("Enter 'dt' if mj_model is None.")
-        else:
-            self.dt = dt
-
-        # Interpolate to MJ timestep
-        self.interpolate_to_mj_dt()
-
-        # Pre-slice qpos into dict
-        self._qpos_dict = slice_reference(self.qpos)
-
-        # Compute velocities
-        self._vel_dict = compute_velocities(self._qpos_dict, self.dt)
-
-        # Full state vector
-        self.x = concatenate_full_state(self._qpos_dict, self._vel_dict)
-
-        self.sensor_data = {}
-        self.extra = 0
-
-    # ------------------------------------------------------------
-    # Interpolation
-    # ------------------------------------------------------------
-
-    def interpolate_to_mj_dt(self):
-        dt_in = 1.0 / self.fps
-
-        if abs(self.dt - dt_in) < 1e-9:
-            return
-
-        t_new = np.arange(0, self.time[-1], self.dt)
-        self.qpos = interpolate_trajectory(self.qpos, self.time, t_new)
-        self.time = t_new
-
-    # ------------------------------------------------------------
-    # Time shifting
-    # ------------------------------------------------------------
+        self.apply_z_offset(z_offset)
+        self._qpos_dict = self.slice_reference(self._qpos)
+        self._qpos_dict = self.interpolate_to_mj_dt(self._qpos_dict)
+        self._vel_dict = self.compute_velocities(self._qpos_dict)
+        self.x = self.concatenate_full_state(self._qpos_dict, self._vel_dict)
 
     def trim_traj(self, t0: float, t_end: float):
         """Trim trajectory so that new time starts at t0."""
@@ -215,61 +126,104 @@ class ReferenceMotion:
         
         if t0 > 0:
             idx = np.searchsorted(self.time, t0)
-            self.qpos = self.qpos[idx:]
+            self._qpos = self._qpos[idx:]
             self.time = self.time[idx:] - self.time[idx]
 
         if t_end > 0:
             idx = np.searchsorted(self.time, t_end)
-            self.qpos = self.qpos[:idx]
+            self._qpos = self._qpos[:idx]
             self.time = self.time[:idx]
 
+    def apply_z_offset(self, z_offset):
+        if z_offset != 0:
+            self._qpos[:, 2] -= z_offset  # root_pos[2]
+            if self.mj_scene.is_obj:
+                obj_qpos_z = self.mj_scene.obj_pos_adr[-1]
+                self._qpos[:, obj_qpos_z] -= z_offset  # object_pos[2]
 
-    # ------------------------------------------------------------
-    # Extend trajectory
-    # ------------------------------------------------------------
+    def slice_reference(self, qpos: np.ndarray) -> Dict[str, np.ndarray]:
+        """
+        Splits qpos into semantic blocks.
+        Assumes layout:
+            [quat(4), root_pos(3), dof(...), object_rot(4), object_pos(3)]
+        """
+        qpos_dict = {
+            "dof_pos": qpos[:, self.mj_scene.act_qposadr],
+        }
+        if self.mj_scene.is_floating_base:
+            qpos_dict.update({
+                "root_pos": qpos[:, self.mj_scene.base_pos_adr],
+                "root_rot": qpos[:, self.mj_scene.base_quat_adr],
+            })
+        if self.mj_scene.is_obj:
+            qpos_dict.update({
+                "object_rot": qpos[:, self.mj_scene.obj_quat_adr],
+                "object_pos": qpos[:, self.mj_scene.obj_pos_adr],
+            })
+        return qpos_dict
 
-    def trim_to_length(self, T_needed: int):
-        """
-        Extend the trajectory to have at least T_needed timesteps
-        by repeating the final timestep data.
-        Automatically updates:
-            - time
-            - qpos
-            - sliced qpos dict
-            - velocities
-            - full x state
-        """
-        T = len(self.time)
-        if T_needed <= T:
+    def interpolate_to_mj_dt(self, qpos_dict):
+        dt_in = 1.0 / self.fps
+
+        if abs(self.dt - dt_in) < 1e-4:
             return
 
-        self.extra = T_needed - T
+        t_new = np.arange(0, self.time[-1], self.dt)
+        qpos_dict_interp = {}
+        for k, v in qpos_dict.items():
+            is_quat = True if "rot" in k else False
+            qpos_dict_interp[k] = interpolate_trajectory(v, self.time, t_new, is_quat=is_quat)
+        
+        self.time = t_new
+        return qpos_dict_interp
 
-        dt = self.mj_model.opt.timestep
+    def compute_velocities(self, qpos_dict: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+        """Compute velocities for root/dof/object segments."""
+        out = {}
 
-        # --- Extend time ---
-        new_times = self.time[-1] + dt * np.arange(1, self.extra + 1)
-        self.time = np.concatenate([self.time, new_times], axis=0)
+        # Root
+        if "root_pos" in qpos_dict:
+            out["root_v"] = finite_diff_qpos_traj_high_order(qpos_dict["root_pos"], self.dt)
+            out["root_w"] = finite_diff_quat_traj(qpos_dict["root_rot"], self.dt)
 
-        # --- Extend qpos ---
-        last_val = self.qpos[-1:]
-        padding = np.repeat(last_val, repeats=self.extra, axis=0)
-        self.qpos = np.concatenate([self.qpos, padding], axis=0)
+        # DOF
+        out["dof_v"] = finite_diff_qpos_traj_high_order(qpos_dict["dof_pos"], self.dt)
 
-        # Recompute sliced fields after qpos changed
-        self._qpos_dict = slice_reference(self.qpos)
+        # Object (optional)
+        if "object_pos" in qpos_dict:
+            out["object_v"] = finite_diff_qpos_traj_high_order(qpos_dict["object_pos"], self.dt)
+            out["object_w"] = finite_diff_quat_traj(qpos_dict["object_rot"], self.dt)
 
-        # Recompute velocities
-        dt_mj = self.mj_model.opt.timestep
-        self._vel_dict = compute_velocities(self._qpos_dict, dt_mj)
+        return out
 
-        # Recompute x
-        self.x = concatenate_full_state(self._qpos_dict, self._vel_dict)
+    def concatenate_full_state(self, qpos_dict, vel_dict) -> np.ndarray:
+        all = []
+        keys_qpos = [
+            "root_pos",
+            "root_rot",
+            "dof_pos",
+            "obj_pos",
+            "obj_rot",
+        ]
+        keys_qvel = [
+            "root_v",
+            "root_w",
+            "dof_v",
+            "obj_v",
+            "obj_w",
+        ]
+        for k in keys_qpos + keys_qvel:
+            v = qpos_dict.get(k, None)
+            if v is not None:
+                all.append(v)
+            else:
+                v = vel_dict.get(k, None)
+                if v is not None:
+                    all.append(v)
 
-    # ------------------------------------------------------------
-    # Sensor extraction
-    # ------------------------------------------------------------
-    def add_sensor_data(self, sensor_names: List[str]):
+        return np.hstack(all)
+
+    def compute_sensor_data(self, sensor_names: List[str]):
         """
         Extracts sensor values for each timestep along the trajectory.
         The results are stored as attributes:
@@ -278,33 +232,36 @@ class ReferenceMotion:
         Sensor trajectory shape:
             [T, sensor_dim]
         """
-        data = mujoco.MjData(self.mj_model)
-
+        model = self.mj_scene.mj_model
+        data = mujoco.MjData(model)
         T = len(self.time)
-        nq = self.mj_model.nq
-        nv = self.mj_model.nv
 
-        qpos_traj = self.x[:, :nq]
-        qvel_traj = self.x[:, nq:]
+        def get_sid(sensor_name: str):
+            return mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SENSOR, sensor_name)
 
-        for sensor_name in sensor_names:
-            sid = mujoco.mj_name2id(self.mj_model, mujoco.mjtObj.mjOBJ_SENSOR, sensor_name)
-            adr = self.mj_model.sensor_adr[sid]
-            dim = self.mj_model.sensor_dim[sid]
+        sensor_name2adr = {
+            sensor_name : model.sensor_adr[get_sid(sensor_name)]
+            for sensor_name in sensor_names
+        }
+        sensor_name2dim = {
+            sensor_name : model.sensor_dim[get_sid(sensor_name)]
+            for sensor_name in sensor_names
+        }
+        self.sensor_data = {
+            sensor_name : np.empty((T, sensor_name2dim[sensor_name]))
+            for sensor_name in sensor_names
+        }
 
-            out = np.zeros((T, dim))
+        for t in range(T):
+            data.qpos[:] =  self.x[t, :self.mj_scene.Nq]
+            data.qvel[:] =  self.x[t, self.mj_scene.Nq:]
+            mujoco.mj_forward(model, data)
 
-            for t in range(T):
-                data.qpos[:] = qpos_traj[t]
-                data.qvel[:] = qvel_traj[t]
-                mujoco.mj_forward(self.mj_model, data)
-                out[t] = data.sensordata[adr:adr + dim]
+            for sensor_name in sensor_names:
+                adr = sensor_name2adr[sensor_name]
+                dim = sensor_name2dim[sensor_name]
+                self.sensor_data[sensor_name][t] = data.sensordata[adr:adr + dim]
 
-            self.sensor_data[sensor_name] = out
-
-    # ------------------------------------------------------------
-    # Lazy property getters (clean!)
-    # ------------------------------------------------------------
     @property
     def T(self): return len(self.time)
     
@@ -312,25 +269,25 @@ class ReferenceMotion:
     def x0(self): return self.x[0]
 
     @property
-    def root_rot(self): return self._qpos_dict["root_rot"]
+    def root_rot(self): return self._qpos_dict.get("root_rot")
 
     @property
-    def root_pos(self): return self._qpos_dict["root_pos"]
+    def root_pos(self): return self._qpos_dict.get("root_pos")
 
     @property
     def dof_pos(self): return self._qpos_dict["dof_pos"]
 
     @property
-    def object_root_pos(self): return self._qpos_dict["object_root_pos"]
+    def object_pos(self): return self._qpos_dict.get("object_pos")
 
     @property
-    def object_rot(self): return self._qpos_dict["object_rot"]
+    def object_rot(self): return self._qpos_dict.get("object_rot")
 
     @property
-    def root_v(self): return self._vel_dict["root_v"]
+    def root_v(self): return self._vel_dict.get("root_v")
 
     @property
-    def root_w(self): return self._vel_dict["root_w"]
+    def root_w(self): return self._vel_dict.get("root_w")
 
     @property
     def dof_v(self): return self._vel_dict["dof_v"]
@@ -341,22 +298,18 @@ class ReferenceMotion:
     @property
     def object_w(self): return self._vel_dict.get("object_w")
 
-    # ------------------------------------------------------------
-    # Actuator utilities
-    # ------------------------------------------------------------
-
     @property
     def act_qpos(self):
-        return self.qpos[:, self.act_qpos_adr]
+        return self.dof_pos
 
     @property
     def act_qpos0(self):
-        return self.qpos[0, self.act_qpos_adr]
+        return self.dof_pos[0]
+    
+    @property
+    def act_qpos_range(self):
+        return self.act_qpos.min(axis=0), self.act_qpos.max(axis=0)
 
-    # Range and mean
-    def get_act_qpos_range(self):
-        q = self.act_qpos
-        return q.min(axis=0), q.max(axis=0)
-
-    def get_act_qpos_mean(self):
+    @property
+    def act_qpos_mean(self):
         return np.mean(self.act_qpos, axis=0)

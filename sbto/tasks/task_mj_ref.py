@@ -14,6 +14,8 @@ class ConfigRefMotion():
         t_end: float = 0.
         speedup: float = 1.0
         z_offset: float = 0.0
+        flip_quat_pos: bool = True
+        quat_wxyz: bool = True
         override_T_sim: bool = True
 
 class TaskMjRef(TaskMj):
@@ -28,14 +30,15 @@ class TaskMjRef(TaskMj):
         # Take mj_scene_ref model if exists
         # If the object in the scene is changed:
         # It computes the reference data with the original model
-        mj_model = self.mj_scene_ref.mj_model if self.mj_scene_ref else self.mj_scene.mj_model
         self.ref = ReferenceMotion(
+            self.mj_scene_ref if self.mj_scene_ref else self.mj_scene,
             cfg_ref.motion_path,
-            mj_model,
             cfg_ref.t0,
             cfg_ref.t_end,
             cfg_ref.speedup,
             cfg_ref.z_offset,
+            cfg_ref.flip_quat_pos,
+            cfg_ref.quat_wxyz,
         )
 
         # Update simulator (T, Nknots) parameters:

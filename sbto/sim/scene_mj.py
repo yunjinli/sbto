@@ -103,10 +103,6 @@ class MjScene():
     @property
     def act_dofadr(self) -> Array:
         return self.mj_model.jnt_dofadr[self.act_joint_ids]
-    
-    @property
-    def act_pos_adr(self) -> Array:
-        return self.mj_model.jnt_qposadr[self.act_joint_ids]
 
     @property
     def act_vel_adr(self) -> Array:
@@ -215,17 +211,6 @@ class MjScene():
                 return True
         return False
 
-    @property
-    def obj_qpos_adr(self) -> List[int]:
-        MJ_JNT_FREE = 0
-        FREE_JOINT_SIZE = 7
-        obj_qpos_adr = []
-        free_joints_id = np.argwhere(self.mj_model.jnt_type == MJ_JNT_FREE)
-        for free_joint_i in free_joints_id:
-            if free_joint_i > 0:
-                obj_qpos_adr = list(free_joint_i + np.arange(FREE_JOINT_SIZE))
-        return obj_qpos_adr
-    
     @property
     def q_min(self) -> Array:
         return np.array(self.mj_model.jnt_range)[self.act_joint_ids, 0]
