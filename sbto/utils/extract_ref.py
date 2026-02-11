@@ -202,15 +202,15 @@ class ReferenceMotion:
             "root_pos",
             "root_rot",
             "dof_pos",
-            "obj_pos",
-            "obj_rot",
+            "object_pos",
+            "object_rot",
         ]
         keys_qvel = [
             "root_v",
             "root_w",
             "dof_v",
-            "obj_v",
-            "obj_w",
+            "object_v",
+            "object_w",
         ]
         for k in keys_qpos :
             v = qpos_dict.get(k, None)
