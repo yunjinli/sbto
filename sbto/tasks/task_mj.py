@@ -10,6 +10,7 @@ class TaskMj(OCPBase):
     def __init__(self, sim: SimMjRollout):
         super().__init__(sim.T)
         self.mj_scene : MjScene = sim.mj_scene
+        self.contact_obs_id = None
 
     @staticmethod
     def get_state_full(model, data):

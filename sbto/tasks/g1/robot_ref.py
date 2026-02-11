@@ -99,9 +99,10 @@ class G1RobotRef(TaskMjRef):
         if len(contact_plan) > 0:
             self.contact_plan = np.int32(np.concatenate(contact_plan, axis=-1))
 
-        dim_sns = 4
-        cnt_sns_sub_id = list(range(0, len(cnt_sns) * dim_sns, dim_sns))
-        self.set_contact_sensor_id(cnt_sns, cnt_sns_sub_id)
+        if cnt_sns:
+            dim_sns = 4
+            cnt_sns_sub_id = list(range(0, len(cnt_sns) * dim_sns, dim_sns))
+            self.set_contact_sensor_id(cnt_sns, cnt_sns_sub_id)
 
         # --- G1 costs ---
         self.add_state_cost_from_ref(
