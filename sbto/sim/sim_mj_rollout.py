@@ -172,9 +172,10 @@ class SimMjRollout(SimRolloutBase):
         from the <best_id> rollout (using data from the last iteration).
         """
         t_knot = self.t_knots[knots_to_skip]
+
         if best_id != self.best_id or t_knot != self.steps_to_skip:
             self.x_rollout_full[:, 1:self.steps_to_skip+1, :] = self.x_rollout_full[best_id, None, 1:self.steps_to_skip+1, :]
-            self.sensordata_rollout_full[:, 1:self.steps_to_skip+1, :] = self.sensordata_rollout_full[best_id, None, 1:self.steps_to_skip+1, :]
+            self.sensordata_rollout_full[:, 1:self.steps_to_skip, :] = self.sensordata_rollout_full[best_id, None, 1:self.steps_to_skip, :]
         
         self.steps_to_skip = t_knot
         self.best_id = best_id
@@ -192,9 +193,14 @@ class SimMjRollout(SimRolloutBase):
             self.nstep_allocated != nstep or
             self.last_T != T
             ):
+            # Ensure full horizon rollout when incrementing
+            if T != self.last_T:
+                self.steps_to_skip = 0
+                self.last_T = T
+                nstep = T
             self._allocate_data_arrays(N, nstep)
-            self.last_T = T
 
+        
         rollout.rollout(self.mj_models,
                         self.mj_datas,
                         self.initial_states,
