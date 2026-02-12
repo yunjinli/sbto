@@ -270,7 +270,7 @@ class RandomizeRollout:
         N = states.shape[0]
 
         if sim.N_allocated != N:
-            sim._init_batches(N, T)
+            sim._allocate_data_arrays(N, T)
 
         sim.initial_states[:, 1:] = states
 

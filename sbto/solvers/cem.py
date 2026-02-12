@@ -21,6 +21,7 @@ class ConfigCEM(ConfigSolver):
     alpha_cov: float = 0.1
     std_incr: float = 0.
     keep_frac: float = 0.
+    min_std_collapsed: float = 0.
     _target_:str = "sbto.solvers.cem.CEM"
     
 class CEM(SamplingBasedSolver):
@@ -36,7 +37,6 @@ class CEM(SamplingBasedSolver):
         self.reg_cov = cfg.std_incr > 0.
         
         self.first_it = True
-        # if self.N_keep > 0:
         self.samples = np.zeros((cfg.N_samples, D))
 
     def get_samples(self) -> Array:
@@ -44,18 +44,19 @@ class CEM(SamplingBasedSolver):
         Get samples from distribution parametrized
         by the current state.
         """
+        diag = np.diag(self.state.cov)
+        self.collapsed_dim = diag < self.cfg.min_std_collapsed  # boolean mask
+        dim_to_sample = ~self.collapsed_dim
+        dim_to_sample[self.n_dim:] = False
+
         N = 0 if self.first_it else self.N_keep
         self.samples[N:, :self.n_dim] = self.sampler.sample(
             mean=self.state.mean[:self.n_dim],
             cov=self.state.cov[:self.n_dim, :self.n_dim],
         )[N:]
-        # ---- Clamp collapsed dimensions ----
-        eps = 1e-7
-        diag = np.diag(self.state.cov)
-        collapsed = diag < eps  # boolean mask
 
-        if np.any(collapsed):
-            self.samples[N:, collapsed] = self.state.mean[None, collapsed]
+        if np.any(self.collapsed_dim):
+            self.samples[N:, self.collapsed_dim] = self.state.best_all[None, self.collapsed_dim]
 
         return self.samples
     
@@ -75,8 +76,9 @@ class CEM(SamplingBasedSolver):
             cov += self.Id
 
         # Update state params with exponential smoothing
-        state.mean += self._mask_mean * self.cfg.alpha_mean * (mean - state.mean)
-        state.cov += self._mask_cov * self.cfg.alpha_cov * (cov - state.cov)
+        s = slice(0, self.n_dim)
+        state.mean[s] += self.cfg.alpha_mean * (mean[s] - state.mean[s])
+        state.cov[s, s] += self.cfg.alpha_cov * (cov[s, s] - state.cov[s, s])
 
     def update(self,
                samples: Array,
@@ -93,6 +95,6 @@ class CEM(SamplingBasedSolver):
         arg_min = elites_idx[0]
         best = samples[arg_min]
         min_cost = costs[arg_min]
-        self.update_min_cost_best(self.state, min_cost, best)
+        self.update_min_cost_best(self.state, min_cost, best, best_id=arg_min)
         
         self.first_it = False

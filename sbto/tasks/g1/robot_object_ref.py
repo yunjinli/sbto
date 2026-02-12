@@ -5,7 +5,7 @@ from typing import Optional
 import sbto.tasks.g1.constants as G1
 from sbto.sim.sim_mj_rollout import SimMjRollout
 from sbto.tasks.task_mj_ref import TaskMjRef, MjScene, ConfigRefMotion
-from sbto.tasks.cost import quadratic_cost_nb, quaternion_dist_nb, hamming_dist_nb
+from sbto.tasks.cost import quadratic_cost_nb, quaternion_dist_logmap_nb, hamming_dist_nb
 
 @dataclass
 class ConfigG1RobotObjRef():
@@ -197,7 +197,7 @@ class G1RobotObjRef(TaskMjRef):
         )
         self.add_sensor_cost_from_ref(
             G1.Sensors.TORSO_QUAT,
-            quaternion_dist_nb,
+            quaternion_dist_logmap_nb,
             weights=cfg.torso_quat_weight,
             weights_terminal=cfg.torso_quat_weight,
         )
@@ -221,7 +221,7 @@ class G1RobotObjRef(TaskMjRef):
         )
         self.add_state_cost_from_ref(
             "obj_quat",
-            quaternion_dist_nb,
+            quaternion_dist_logmap_nb,
             sim.mj_scene.obj_quat_adr,
             weights=cfg.obj_quat_weight,
             weights_terminal=cfg.obj_quat_weight_terminal,
@@ -249,7 +249,7 @@ class G1RobotObjRef(TaskMjRef):
         # Hand orientation (world and obj frame)
         self.add_sensor_cost_from_ref(
             G1.Sensors.HAND_QUAT + G1.Sensors.HAND_QUAT_OBJ_FRAME,
-            quaternion_dist_nb,
+            quaternion_dist_logmap_nb,
             weights=cfg.hand_orientation,
         )
         # Foot position
@@ -261,7 +261,7 @@ class G1RobotObjRef(TaskMjRef):
         # Foot orientation
         self.add_sensor_cost_from_ref(
             G1.Sensors.FEET_QUAT,
-            quaternion_dist_nb,
+            quaternion_dist_logmap_nb,
             weights=cfg.foot_orientation,
         )
         # Feet contact

@@ -83,14 +83,20 @@ class SimMjRollout(SimRolloutBase):
 
 
         # preallocate results
-        self.mj_models = None
-        self.mj_datas = None
+        self.mj_models = []
+        self.mj_datas = []
         self.initial_states : Array = None
-        self.state_rollout : Array = None
+        self.x_rollout : Array = None
+        self.x_rollout_full : Array = None
         self.sensordata_rollout : Array = None
+        self.sensordata_rollout_full : Array = None
         self.initial_warmstart : Array = None
+        self.t0 = 0.
+        self.steps_to_skip = 0
+        self.best_id = 0
         self.N_allocated = -1
-        self.T_allocated = -1
+        self.last_T = -1
+        self.nstep_allocated = -1
         # mujoco rollout variables
         self._chunk_size = cfg._chunk_size
         self._persistent_pool = True
@@ -134,18 +140,44 @@ class SimMjRollout(SimRolloutBase):
         x_0 = np.concatenate((x_p_0, x_v_0))
         self.set_initial_state(x_0)
 
-    def _init_batches(self, N: int, T:int) -> None:
+    def _allocate_data_arrays(self, N: int, nstep: int) -> None:
+
+        if len(self.mj_datas) != self.Nthread:
+            self.mj_datas = [copy.copy(self.mj_scene.mj_data) for _ in range(self.Nthread)]
+
+        if N != self.N_allocated:
+            self.mj_models = [self.mj_scene.mj_model] * N
+            # [N, Nx+1], include time as the first state
+            self.initial_states = np.empty((N, self.Nx+1))
+            x_0 = np.concatenate(([self.t0], self.x_0))[None, :]
+            # [N, T+1, Nx+1]
+            self.x_rollout_full = np.empty((N, self.T+1, self.Nx+1))
+            # Set x_0
+            self.x_rollout_full[:, 0, :] = x_0
+            # [N, T, Nobs]
+            self.sensordata_rollout_full = np.empty((N, self.T, self.mj_scene.Nobs))
+
+        self.initial_states[:] = self.x_rollout_full[self.best_id, None, self.steps_to_skip, :]
+        # [N, T_eff, Nx+1]
+        self.x_rollout = np.empty((N, nstep, self.Nx+1))
+        # [N, T_eff, Nobs]
+        self.sensordata_rollout = np.empty((N, nstep, self.mj_scene.Nobs))
+            
         self.N_allocated = N
-        self.T_allocated = T
-        self.mj_models = [self.mj_scene.mj_model] * self.N_allocated
-        self.mj_datas = [copy.copy(self.mj_scene.mj_data) for _ in range(self.Nthread)]
-        t0 = [0.]
-        # [N, Nx+1], include time as the first state
-        self.initial_states = np.tile(np.concatenate((t0, self.x_0)), (self.N_allocated, 1))
-        # [N, T, Nx+1]
-        self.state_rollout = np.zeros((self.N_allocated, T, self.Nx+1))
-        # [N, T, Nobs]
-        self.sensordata_rollout = np.zeros((self.N_allocated, T, self.mj_scene.Nobs))
+        self.nstep_allocated = nstep
+
+    def skip_first_rollout_steps(self, knots_to_skip, best_id):
+        """
+        Skip the first rollout steps by taking the state and sensor data
+        from the <best_id> rollout (using data from the last iteration).
+        """
+        t_knot = self.t_knots[knots_to_skip]
+        if best_id != self.best_id or t_knot != self.steps_to_skip:
+            self.x_rollout_full[:, 1:self.steps_to_skip+1, :] = self.x_rollout_full[best_id, None, 1:self.steps_to_skip+1, :]
+            self.sensordata_rollout_full[:, 1:self.steps_to_skip+1, :] = self.sensordata_rollout_full[best_id, None, 1:self.steps_to_skip+1, :]
+        
+        self.steps_to_skip = t_knot
+        self.best_id = best_id
 
     def _rollout_dynamics(self, u_traj: Array, with_x0) -> Tuple[Array, Array, Array]:
         """
@@ -153,36 +185,41 @@ class SimMjRollout(SimRolloutBase):
         Returns state [-1, T, Nu], control [-1, T, Nu] and observations [-1, T, Nobs] trajectories.
         """
         N, T, Nu = u_traj.shape
-        if self.N_allocated != N or self.T_allocated != T:
-            self._init_batches(N, T)
+        nstep = int(T - self.steps_to_skip)
+
+        if (
+            self.N_allocated != N or
+            self.nstep_allocated != nstep or
+            self.last_T != T
+            ):
+            self._allocate_data_arrays(N, nstep)
+            self.last_T = T
 
         rollout.rollout(self.mj_models,
                         self.mj_datas,
                         self.initial_states,
-                        control=u_traj,
-                        nstep=T,
+                        control=u_traj[:, self.steps_to_skip:, :],
+                        nstep=nstep,
                         initial_warmstart=self.initial_warmstart,
-                        state=self.state_rollout,
-                        sensordata=self.sensordata_rollout, 
+                        state=self.x_rollout,
+                        sensordata=self.sensordata_rollout,
                         skip_checks=True,
                         persistent_pool=self._persistent_pool,
                         chunk_size=self._chunk_size
                         )
+
+        self.x_rollout_full[:, self.steps_to_skip+1:T+1, :] = self.x_rollout
+        self.sensordata_rollout_full[:, self.steps_to_skip:T, :] = self.sensordata_rollout
         
-        if with_x0:
-            x_traj_full = np.concatenate((self.initial_states[:, None, :], self.state_rollout), axis=1)
-            return (
-            x_traj_full[:, :, :1],
-            x_traj_full[:, :, 1:],
-            u_traj,
-            self.sensordata_rollout
-        )
+        # Need to call skip_first_rollout_steps before each rollout
+        self.steps_to_skip = 0
+        first_timestep = 0 if with_x0 else 1
 
         return (
-            self.state_rollout[:, :, :1],
-            self.state_rollout[:, :, 1:],
+            self.x_rollout_full[:, first_timestep:T+1, :1],
+            self.x_rollout_full[:, first_timestep:T+1, 1:],
             u_traj,
-            self.sensordata_rollout
+            self.sensordata_rollout_full[:, :T, :]
         )
     
     def rollout_multiple_shooting(self, u_knots : Array, x_shooting: Array, with_x0: bool = False) -> Tuple[Array, Array, Array]:
@@ -202,7 +239,7 @@ class SimMjRollout(SimRolloutBase):
 
         for t_start, t_end, x_start in zip(self.t_knots[:-1], self.t_knots[1:], x_shooting):
             # Reset initial state and data
-            self.T_allocated = -1
+            self.last_T = -1
             self.set_initial_state(x_start)
 
             if len(t_full) > 0:
@@ -223,7 +260,7 @@ class SimMjRollout(SimRolloutBase):
         obs_full = np.concatenate(obs_full, axis=1)
 
         self.set_initial_state(x_shooting[0])
-        self.T_allocated = -1
+        self.last_T = -1
         self.initial_warmstart = None
         
         return t_full, x_full, u_full, obs_full

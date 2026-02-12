@@ -17,6 +17,7 @@ class SolverState():
         - mean (Array) : best sample  [D]
         - cov (Array) : covariance matrix [D, D]
         - best (Array) : best sample [D]
+        - best_id (int) : best sample index
         - min_cost (float) : minimum cost of current iteration
         - min_cost_all (float) : minimum cost of all iterations
     """
@@ -24,8 +25,9 @@ class SolverState():
     cov: Array
     best: Array
     best_all: Array
-    min_cost: float
-    min_cost_all: float
+    best_id: int = 0
+    min_cost: float = np.inf
+    min_cost_all: float = np.inf
 
 @dataclass
 class ConfigSolver():
@@ -51,24 +53,16 @@ class SamplingBasedSolver(ABC):
         self.state = self.init_state()
 
         # Mask to optimize only some variables, used for incremental optimization
-        self._mask_mean = np.ones((self.D,))
-        self._mask_cov = np.ones((self.D, self.D))
         self.n_dim = self.D
+        self.collapsed_dim = np.full(D, False, dtype=np.bool)
 
     def opt_first_dim(self, n_dim: int = -1):
         """
         Set masks to optimize only the first <n_dim> variables.
         """
         if n_dim == -1:
-            self._mask_mean[:] = 1.
-            self._mask_cov[:, :] = 1.
             self.n_dim = self.D
         else:
-            self._mask_mean[:n_dim] = 1.
-            self._mask_mean[n_dim:] = 0.
-            self._mask_cov[:n_dim, :n_dim] = 1.
-            self._mask_cov[n_dim:, :] = 0.
-            self._mask_cov[:, n_dim:] = 0.
             self.n_dim = n_dim
     
     def _get_sampler(self) -> SamplerAbstract:
@@ -98,8 +92,6 @@ class SamplingBasedSolver(ABC):
             cov=cov,
             best=np.zeros_like(mean),
             best_all=np.zeros_like(mean),
-            min_cost=np.inf,
-            min_cost_all=np.inf,
         )
 
     @staticmethod
@@ -113,7 +105,8 @@ class SamplingBasedSolver(ABC):
             self,
             state: SolverState,
             min_cost_rollout : float,
-            best: Array
+            best: Array,
+            best_id: int,
             ) -> None:
         """
         Update solver state's min_cost and best sample inplace.
