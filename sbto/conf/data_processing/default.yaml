@@ -15,6 +15,6 @@ save_best_samples_it: true
 # if <save_top> >= 1: save top #<save_top> trajectories
 save_top: 1
 # Remove keys from data
-remove_keys: ["x", "o"]
+remove_keys: ["x", "obs"]
 # Take top trajectories from the <n_last_it> last iterations only
 n_last_it: 0
