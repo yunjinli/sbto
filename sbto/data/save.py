@@ -15,16 +15,7 @@ from sbto.utils.viewer import render_and_save_trajectory
 from sbto.data.utils import solver_state_path_from_rundir, create_dirs
 from sbto.data.postprocess import split_x_traj
 from sbto.data.aggregate import get_top_samples
-from sbto.data.filenames import (
-    ALL_SAMPLES_COSTS_FILENAME,
-    BEST_TRAJECTORY_FILENAME,
-    BEST_SAMPLES_IT_FILENAME,
-    INITIAL_SOLVER_STATE_SUFFIX,
-    FINAL_SOLVER_STATE_SUFFIX,
-    HYDRA_CFG,
-    MJ_MODEL_NAME,
-    TOP_TRAJECTORIES_FILENAME,
-)
+from sbto.data.constants import *
 
 Array = npt.NDArray[np.float64]
 
@@ -163,7 +154,7 @@ def save_results(
     # Save best samples per iterations
     if save_best_samples_it:
         data = {str(i) : sample for i, sample in enumerate(best_samples_it)}
-        data["c"] = np.min(all_costs, axis=0)
+        data[KEY_COST] = np.min(all_costs, axis=0)
         np.savez_compressed(
             os.path.join(result_dir, f"{BEST_SAMPLES_IT_FILENAME}.npz"),
             **data
@@ -198,17 +189,17 @@ def save_results(
 
     # By default all data keys are saved
     data_traj = {
-        "time": t,
-        "x": x_traj,
-        "u": qdes_traj,
-        "o": obs_traj,
-        "c": top_costs,
-        "t_knots": sim.t_knots,
+        KEY_TIME: t,
+        KEY_FULL_STATE: x_traj,
+        KEY_PD_TARGET: qdes_traj,
+        KEY_OBS: obs_traj,
+        KEY_COST: top_costs,
+        KEY_STEP_KNOTS: sim.t_knots,
     }
 
     # Split state
     if split_state:
-        splitted_data = split_x_traj(x_traj, mj_model=sim.mj_scene.mj_model)
+        splitted_data = split_x_traj(x_traj, sim.mj_scene)
         data_traj.update({
             k: v
             for k, v in splitted_data.items()
@@ -250,10 +241,10 @@ def save_results(
         save_plots(
             result_dir,
             task,
-            best_data["time"],
-            best_data["x"],
-            best_data["u"],
-            best_data["o"],
+            best_data[KEY_TIME],
+            best_data[KEY_FULL_STATE],
+            best_data[KEY_PD_TARGET],
+            best_data[KEY_OBS],
             best_knots,
             solver_state_final.mean,
             solver_state_final.cov,
@@ -265,8 +256,8 @@ def save_results(
         render_and_save_trajectory(
             sim.mj_scene.mj_model,
             sim.mj_scene.mj_data,
-            best_data["time"],
-            best_data["x"],
+            best_data[KEY_TIME],
+            best_data[KEY_FULL_STATE],
             save_path=result_dir,
         )
 

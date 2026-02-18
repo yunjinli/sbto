@@ -13,9 +13,7 @@ from sbto.data.utils import (
     get_arg_from_cfg_dict,
     get_all_best_traj_data,
     )
-from sbto.data.filenames import (
-    BEST_TRAJECTORY_RAND_FILENAME,
-    )
+from sbto.data.constants import *
 
 def group_run_dir_by_ref_file_name(task_dir: str):
     """

@@ -6,12 +6,8 @@ import glob
 from omegaconf import OmegaConf
 
 from sbto.run.stats import PERF_FILENAME
-from sbto.data.filenames import (
-    CONFIG_FILENAME,
-    BEST_TRAJECTORY_FILENAME,
-    DATA_DIR,
-    SOLVER_STATE_NAME
-)
+from sbto.data.postprocess import reconstruct_x_traj_from_data_dict
+from sbto.data.constants import *
 
 def get_date_time() -> str:
     now = datetime.now()
@@ -113,30 +109,10 @@ def solver_state_path_from_rundir(rundir: str, suffix: str = "") -> str:
         filename = f"{SOLVER_STATE_NAME}.npz"
     return os.path.join(rundir, filename)
 
-def reconstruct_x_traj(data_dict):
-    """
-    Reconstruct original trajectory dictionary from split keys.
-    """
-
-    required_keys = [
-        "base_xyz_quat",
-        "actuator_pos",
-        "obj_0_xyz_quat",
-        "base_linvel_angvel",
-        "actuator_vel",
-        "obj_0_linvel_angvel",
-    ]
-    x_traj = []
-    for k in required_keys:
-        if k in data_dict:
-            print(data_dict[k].shape)
-            x_traj.append(data_dict[k])
-    return np.concatenate(x_traj, axis=-1)
-
 def load_best_trajectory_from_rundir(rundir: str, with_full_state: bool = True):
     data_path = os.path.join(rundir, f"{BEST_TRAJECTORY_FILENAME}.npz")
     data = dict(np.load(data_path))
     if with_full_state:
-        x_traj = reconstruct_x_traj(data)
-        data["x"] = x_traj
+        x_traj = reconstruct_x_traj_from_data_dict(data)
+        data[KEY_FULL_STATE] = x_traj
     return data

@@ -8,6 +8,8 @@ from sbto.utils.finite_diff import (
     finite_diff_qpos_traj_high_order,
     finite_diff_quat_traj,
 )
+from sbto.data.postprocess import split_x_traj
+from sbto.data.constants import *
 
 def normalize_quat(q: np.ndarray) -> np.ndarray:
     """Normalize quaternion array [T,4]."""
@@ -111,7 +113,7 @@ class ReferenceMotion:
         self.time = compute_time_array(self.fps, len(self._qpos))
         self.trim_traj(t0, t_end)
         self.apply_z_offset(z_offset)
-        self._qpos_dict = self.slice_reference(self._qpos)
+        self._qpos_dict = split_x_traj(self._qpos, self.mj_scene, only_pos=True)
         self._qpos_dict = self.interpolate_to_mj_dt(self._qpos_dict)
         self._vel_dict = self.compute_velocities(self._qpos_dict)
         self.x = self.concatenate_full_state(self._qpos_dict, self._vel_dict)
@@ -141,27 +143,6 @@ class ReferenceMotion:
                 obj_qpos_z = self.mj_scene.obj_pos_adr[-1]
                 self._qpos[:, obj_qpos_z] -= z_offset  # object_pos[2]
 
-    def slice_reference(self, qpos: np.ndarray) -> Dict[str, np.ndarray]:
-        """
-        Splits qpos into semantic blocks.
-        Assumes layout:
-            [quat(4), root_pos(3), dof(...), object_rot(4), object_pos(3)]
-        """
-        qpos_dict = {
-            "dof_pos": qpos[:, self.mj_scene.act_qposadr],
-        }
-        if self.mj_scene.is_floating_base:
-            qpos_dict.update({
-                "root_pos": qpos[:, self.mj_scene.base_pos_adr],
-                "root_rot": qpos[:, self.mj_scene.base_quat_adr],
-            })
-        if self.mj_scene.is_obj:
-            qpos_dict.update({
-                "object_rot": qpos[:, self.mj_scene.obj_quat_adr],
-                "object_pos": qpos[:, self.mj_scene.obj_pos_adr],
-            })
-        return qpos_dict
-
     def interpolate_to_mj_dt(self, qpos_dict):
         dt_in = 1.0 / self.fps
 
@@ -182,41 +163,27 @@ class ReferenceMotion:
         out = {}
 
         # Root
-        if "root_pos" in qpos_dict:
-            out["root_v"] = finite_diff_qpos_traj_high_order(qpos_dict["root_pos"], self.dt)
-            out["root_w"] = finite_diff_quat_traj(qpos_dict["root_rot"], self.dt)
+        if KEY_ROOT_POS in qpos_dict:
+            out[KEY_ROOT_V] = finite_diff_qpos_traj_high_order(qpos_dict[KEY_ROOT_POS], self.dt)
+            out[KEY_ROOT_W] = finite_diff_quat_traj(qpos_dict[KEY_ROOT_ROT], self.dt)
 
         # DOF
-        out["dof_v"] = finite_diff_qpos_traj_high_order(qpos_dict["dof_pos"], self.dt)
+        out[KEY_DOF_V] = finite_diff_qpos_traj_high_order(qpos_dict[KEY_DOF_POS], self.dt)
 
         # Object (optional)
-        if "object_pos" in qpos_dict:
-            out["object_v"] = finite_diff_qpos_traj_high_order(qpos_dict["object_pos"], self.dt)
-            out["object_w"] = finite_diff_quat_traj(qpos_dict["object_rot"], self.dt)
+        if KEY_OBJECT_POS in qpos_dict:
+            out[KEY_OBJECT_V] = finite_diff_qpos_traj_high_order(qpos_dict[KEY_OBJECT_POS], self.dt)
+            out[KEY_OBJECT_W] = finite_diff_quat_traj(qpos_dict[KEY_OBJECT_ROT], self.dt)
 
         return out
 
     def concatenate_full_state(self, qpos_dict, vel_dict) -> np.ndarray:
         all = []
-        keys_qpos = [
-            "root_pos",
-            "root_rot",
-            "dof_pos",
-            "object_pos",
-            "object_rot",
-        ]
-        keys_qvel = [
-            "root_v",
-            "root_w",
-            "dof_v",
-            "object_v",
-            "object_w",
-        ]
-        for k in keys_qpos :
+        for k in KEYS_QPOS :
             v = qpos_dict.get(k, None)
             if v is not None:
                 all.append(v)
-        for k in keys_qvel:
+        for k in KEYS_QVEL:
             v = vel_dict.get(k, None)
             if v is not None:
                 all.append(v)
@@ -268,34 +235,34 @@ class ReferenceMotion:
     def x0(self): return self.x[0]
 
     @property
-    def root_rot(self): return self._qpos_dict.get("root_rot")
+    def root_rot(self): return self._qpos_dict.get(KEY_ROOT_ROT)
 
     @property
-    def root_pos(self): return self._qpos_dict.get("root_pos")
+    def root_pos(self): return self._qpos_dict.get(KEY_ROOT_POS)
 
     @property
-    def dof_pos(self): return self._qpos_dict["dof_pos"]
+    def dof_pos(self): return self._qpos_dict[KEY_DOF_POS]
 
     @property
-    def object_pos(self): return self._qpos_dict.get("object_pos")
+    def object_pos(self): return self._qpos_dict.get(KEY_OBJECT_POS)
 
     @property
-    def object_rot(self): return self._qpos_dict.get("object_rot")
+    def object_rot(self): return self._qpos_dict.get(KEY_OBJECT_ROT)
 
     @property
-    def root_v(self): return self._vel_dict.get("root_v")
+    def root_v(self): return self._vel_dict.get(KEY_ROOT_V)
 
     @property
-    def root_w(self): return self._vel_dict.get("root_w")
+    def root_w(self): return self._vel_dict.get(KEY_ROOT_W)
 
     @property
-    def dof_v(self): return self._vel_dict["dof_v"]
+    def dof_v(self): return self._vel_dict[KEY_DOF_V]
 
     @property
-    def object_v(self): return self._vel_dict.get("object_v")
+    def object_v(self): return self._vel_dict.get(KEY_OBJECT_V)
 
     @property
-    def object_w(self): return self._vel_dict.get("object_w")
+    def object_w(self): return self._vel_dict.get(KEY_OBJECT_W)
 
     @property
     def act_qpos(self):
