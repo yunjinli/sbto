@@ -180,14 +180,6 @@ def optimize_incremental_opt(
             if all_knots_optimized:
                 all_samples.append(samples.copy())
 
-            ### Skip rollout steps
-            # If all first dims corresponding to the first <k> knots
-            # have collapsed, skip the rollouts and take last trajectories
-            first_dim_non_collapsed = np.argmax(~solver.collapsed_dim)
-            n_knots_collapsed = first_dim_non_collapsed // sim.Nu
-            if n_knots_collapsed > 0:
-                sim.skip_first_rollout_steps(n_knots_collapsed)
-
             costs = compute_cost_t_end(samples, sim, task, t_end=t_end)
             all_costs.append(costs)
             best_samples_it.append(solver.state.best.copy())

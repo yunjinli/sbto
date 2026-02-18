@@ -5,6 +5,7 @@ from typing import Tuple, Optional
 import copy
 from dataclasses import dataclass
 from multiprocessing import cpu_count
+import numba as nb
 
 from sbto.sim.sim_base import SimRolloutBase, Array
 from sbto.sim.scene_mj import MjScene
@@ -95,10 +96,11 @@ class SimMjRollout(SimRolloutBase):
         self.N_allocated = -1
         self.last_T = -1
         self.nstep_allocated = -1
+        self._empty_data = True
         # mujoco rollout variables
         self._chunk_size = cfg._chunk_size
         self._persistent_pool = True
-        self._pending_steps_to_skip = 0
+        self._last_steps_to_skip = 0
 
     @property
     def duration(self):
@@ -159,32 +161,38 @@ class SimMjRollout(SimRolloutBase):
         self.x_rollout = np.empty((N, nstep, self.Nx+1))
         # [N, T_eff, Nobs]
         self.sensordata_rollout = np.empty((N, nstep, self.mj_scene.Nobs))
-            
+        
+        self._empty_data = True
         self.N_allocated = N
         self.nstep_allocated = nstep
 
-    def skip_first_rollout_steps(self, knots_to_skip):
-        """
-        Skip the first rollout steps by taking the state and sensor data.
-        """
-        # Even though the first sampled knots are the same,
-        # the interpolated controls between those knots might be
-        # different as the later knots have different values.
-        match self.interp_kind:
-            case "pchip":
-                offset_skip = 2
-            case "linear":
-                offset_skip = 0
-            case _:
-                offset_skip = 2
-        knots_to_skip -= offset_skip
+    @staticmethod
+    @nb.njit(fastmath=True)
+    def first_divergence_index_numba(u_traj, previous_skip=0):
+        B, T, Nu = u_traj.shape
 
-        if knots_to_skip > 0:
-            # Do not immediately skip the rollout.
-            # This ensures x_rollout_full[:, :t_knots[knots_to_skip], :]
-            # is initialized with the right data before skipping it
-            self.steps_to_skip = self.t_knots[knots_to_skip]
-            self._pending_steps_to_skip = self.t_knots[knots_to_skip]
+        for t in range(previous_skip, T):
+            for u in range(Nu):
+                # take first batch element as reference
+                ref = u_traj[0, t, u]
+
+                for b in range(1, B):
+                    if u_traj[b, t, u] != ref:
+                        return t
+
+        return 0  # no divergence
+
+    def _update_steps_to_skip(self, u_traj):
+        if (
+            u_traj.shape[0] == 1 or
+            self.x_rollout is None or 
+            self._empty_data
+            ):
+            steps_to_skip = 0
+            self._last_steps_to_skip = 0
+        else:
+            steps_to_skip = self.first_divergence_index_numba(u_traj, self._last_steps_to_skip)
+            self._last_steps_to_skip = steps_to_skip
 
     def _rollout_dynamics(self, u_traj: Array, with_x0) -> Tuple[Array, Array, Array]:
         """
@@ -192,6 +200,7 @@ class SimMjRollout(SimRolloutBase):
         Returns state [-1, T, Nu], control [-1, T, Nu] and observations [-1, T, Nobs] trajectories.
         """
         N, T, Nu = u_traj.shape
+        self._update_steps_to_skip(u_traj)
         nstep = int(T - self.steps_to_skip)
 
         if (
@@ -221,7 +230,8 @@ class SimMjRollout(SimRolloutBase):
                         persistent_pool=self._persistent_pool,
                         chunk_size=self._chunk_size
                         )
-
+        
+        self._empty_data = False
         self.x_rollout_full[:, self.steps_to_skip+1:T+1, :] = self.x_rollout
         self.sensordata_rollout_full[:, self.steps_to_skip:T, :] = self.sensordata_rollout
 
