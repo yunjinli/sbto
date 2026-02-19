@@ -72,6 +72,7 @@ def group_traj_data_by_ref_in_single_file(task_dir: str):
         rand_data_path = os.path.join(run_dir_dst, f"{BEST_TRAJECTORY_RAND_FILENAME}.npz")
         
         print(ref_motion_name, i+1)
-        del all_data["t_knots"]
+        if "t_knots" in all_data:
+            del all_data["t_knots"]
         np.savez_compressed(rand_data_path, **all_data)
 
