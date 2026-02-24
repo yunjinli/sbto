@@ -78,7 +78,7 @@ For the OmniRetarget dataset, the reference is a box. For the rollouts one can u
 python3 sbto/main.py \
 solver=cem \
 task.cfg_ref.motion_path=datasets/robot-object/sub10_largebox_000_original.npz \
-# Here the hydra command gets a bit heavy
+# Here the hydra command gets a bit heavy \
 task/g1/sim/mj_scene@task.sim.mj_scene=small_box  # can be chair, shelf, cylinder
 ```
 
