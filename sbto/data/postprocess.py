@@ -45,8 +45,8 @@ def split_x_traj(
     for name, id in name2id.items():
         n_extracted_joints += np.sum(np.shape(id))
 
-    if n_extracted_joints != x_traj.shape[-1]:
-        raise ValueError(f"Missing extracted joints (got {n_extracted_joints}, should be {x_traj.shape[-1]})")
+    if n_extracted_joints > x_traj.shape[-1]:
+        raise ValueError(f"Too many extracted joints (got {n_extracted_joints}, reference has {x_traj.shape[-1]})")
 
     # Extract data
     extracted_data = {}
