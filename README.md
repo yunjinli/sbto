@@ -36,7 +36,69 @@ wget "https://huggingface.co/datasets/omniretarget/OmniRetarget_Dataset/resolve/
 unizip robot-object.zip
 ```
 
-### Test
+## Usage
+
+Most of the paramters of SBTO can be set at runtime as command line argument. The code base relies on [hydra](https://hydra.cc/) to do so. Parameters required to instantiate the different classes in the code can be found in the `./conf` sub-directories.
+For more advance usage (if for instance you want to write your own task/solvers), I recommend looking into the different config files to have a better understanding of the repo structure.
+
+### Loading a motion reference
+
+To run SBTO on a specific motion reference from the OmniRetarget dataset simply run:
+
 ```python
-python3 sbto/main.py task=g1/robot_object_ref warm_start=incremental task.cfg_ref.motion_path="datasets/robot-object/sub10_largebox_000_original.npz"
+python3 sbto/main.py \
+# Change the solver (cem is the default one)
+solver=cem \
+task.cfg_ref.motion_path=datasets/robot-object/sub10_largebox_000_original.npz
+```
+
+One can have more control on the motion reference by changing the parameters defined in the respective config [file](sbto/conf/task/g1/cfg_ref/default.yaml).
+
+**Warning**: If you use your own reference motion in MuJoCo format then you should set `task.cfg_ref.flip_quat_pos=False`. This is set to True by default as for OmniRetarget data, free joints are expressed in [quat, pos] format.
+
+To check that your reference is being loaded correctly, you can visualize it by running:
+
+```python
+python3 scripts/visualize_ref.py \
+task.cfg_ref.motion_path=datasets/robot-object/sub10_largebox_000_original.npz \
+task.cfg_ref.speedup=2.
+# Add all hydra args you would use for SBTO
+```
+
+### Changing the scene
+
+SBTO also allows to change the scene directly from command line arguments.
+Very importantly, SBTO loads **two different scenes** when using a reference: the one of the demonstration and the one of the refinement process (in which the rollouts happen).
+Predefined scenes are already defined [here](sbto/conf/task/g1/mj_scene_ref) (for the reference) and [here](sbto/conf/task/g1/sim/mj_scene) (for the rollouts).
+
+For the OmniRetarget dataset, the reference is a box. For the rollouts one can use different options with different objects:
+
+
+```python
+python3 sbto/main.py \
+solver=cem \
+task.cfg_ref.motion_path=datasets/robot-object/sub10_largebox_000_original.npz \
+# Here the hydra command gets a bit heavy
+task/g1/sim/mj_scene@task.sim.mj_scene=small_box  # can be chair, shelf, cylinder
+```
+
+If you want to add your own objects, SBTO supports primitive geometries, `.urdf` and `.obj` meshes. Note the object placement has to be manually refined so that it starts in the correct position and orientation.
+
+If you want to visualize your scene, you can change the reference's scene and use the same script as before:
+
+```python3
+python3 scripts/visualize_ref.py \
+task.cfg_ref.motion_path=datasets/robot-object/sub10_largebox_000_original.npz \
+task/g1/mj_scene_ref@task.mj_scene_ref=../sim/mj_scene/chair_mesh
+```
+
+
+#### Without object
+
+If you don't have any object in your scene use `g1/robot_ref` task:
+
+```python3
+python3 sbto/main.py \
+task=g1/robot_ref \
+task.cfg_ref.motion_path=datasets/robot-object/sub10_largebox_000_original.npz
 ```
