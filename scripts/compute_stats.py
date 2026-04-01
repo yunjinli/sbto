@@ -19,6 +19,14 @@ def main(
     n_success = data["success"].sum()
     print(f" {n_success / len(data) * 100.}%")
 
+    print("=== Error stats ===")
+    mean_pos_error = data['err_pos_obj'].mean()
+    std_pos_error = data['err_pos_obj'].std()
+    mean_rot_error = data['err_quat_obj'].mean()
+    std_rot_error = data['err_quat_obj'].std()
+    print("Pos error (m):", mean_pos_error, "std:", std_pos_error)
+    print("Rot error (rad):", mean_rot_error, "std:", std_rot_error)
+
     print("=== Smoothness ===")
     smoothness = data[data["success"]]["act_acc_ratio"].values.mean()
     print(f" {smoothness:.2f}")
