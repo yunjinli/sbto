@@ -11,13 +11,16 @@ from sbto.utils.finite_diff import (
 from sbto.data.postprocess import split_x_traj
 from sbto.data.constants import *
 
+
 def normalize_quat(q: np.ndarray) -> np.ndarray:
     """Normalize quaternion array [T,4]."""
     return q / np.linalg.norm(q, axis=-1, keepdims=True)
 
+
 def quat_xyzw_to_wxyz(q: np.ndarray) -> np.ndarray:
     """Convert quaternion [x,y,z,w] -> [w,x,y,z]."""
     return np.column_stack([q[:, 3], q[:, :3]])
+
 
 def flip_quat_pos_in_traj(free_joint_traj: np.ndarray) -> np.ndarray:
     """Convert free joint [quat, pos] -> [pos, quat]."""
@@ -26,8 +29,10 @@ def flip_quat_pos_in_traj(free_joint_traj: np.ndarray) -> np.ndarray:
     free_joint_traj_flipped[:, 3:] = free_joint_traj[:, :-3]
     return free_joint_traj_flipped
 
+
 def compute_time_array(fps: float, N: int) -> np.ndarray:
     return np.arange(N) / fps
+
 
 def load_npz_reference(path: str) -> Dict[str, np.ndarray]:
     """
@@ -43,6 +48,7 @@ def load_npz_reference(path: str) -> Dict[str, np.ndarray]:
         "fps": float(fps),
     }
 
+
 def make_quaternions_continuous(quat_traj: np.ndarray):
     """
     Ensures that quaternions are continuous with sign flip.
@@ -50,8 +56,9 @@ def make_quaternions_continuous(quat_traj: np.ndarray):
     quat_dot_prod = np.sum(quat_traj[:-1, :] * quat_traj[1:, :], axis=-1)
     sign_flip = np.argwhere(quat_dot_prod < 0) + 1
     for id in sign_flip:
-        quat_traj[np.squeeze(id):, :] *= -1
+        quat_traj[np.squeeze(id) :, :] *= -1
     return quat_traj
+
 
 def interpolate_trajectory(
     values: np.ndarray, time: np.ndarray, t_new: np.ndarray, is_quat=False
@@ -62,8 +69,11 @@ def interpolate_trajectory(
         interp = interp1d(time, values, axis=0, copy=False, assume_sorted=True)
         return normalize_quat(interp(t_new))
     else:
-        interp = interp1d(time, values, kind="cubic", axis=0, copy=False, assume_sorted=True)
+        interp = interp1d(
+            time, values, kind="cubic", axis=0, copy=False, assume_sorted=True
+        )
         return interp(t_new)
+
 
 class ReferenceMotion:
     """
@@ -72,6 +82,7 @@ class ReferenceMotion:
     - Everything else is provided via properties:
         root_pos, root_rot, dof_pos, etc.
     """
+
     def __init__(
         self,
         mj_scene: MjScene,
@@ -92,14 +103,62 @@ class ReferenceMotion:
         self.fps = base["fps"] * speedup
         self._qpos = base["qpos"]
 
+        # Check if the dataset qpos is smaller than the model's expected qpos
+        # (e.g., when loading a 23-DOF dataset into a 53-DOF DFQ model)
+        expected_qpos_size = self.mj_scene.mj_model.nq
+        current_qpos_size = self._qpos.shape[1]
+
+        if current_qpos_size < expected_qpos_size:
+            # Create a padded array of the correct size.
+            # Finger joints stay at 0 (resting position).
+            padded_qpos = np.zeros((self._qpos.shape[0], expected_qpos_size))
+
+            # Map reference body joints to the correct (possibly non-contiguous) positions
+            # in the target model. This handles models like DFQ where hand joints are
+            # interleaved between arm joints in the kinematic tree.
+            # Strategy: sort the target's body-only actuated joint qpos addresses (tree order),
+            # and map the reference's contiguous body joints onto those positions 1-to-1.
+            model = self.mj_scene.mj_model
+            act_joint_ids = model.actuator_trnid[:, 0]
+            act_qposadr = model.jnt_qposadr[act_joint_ids]
+            act_joint_names = [
+                mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_JOINT, int(jid))
+                for jid in act_joint_ids
+            ]
+            # Finger joints all start with uppercase L_ or R_ (e.g. L_thumb_proximal_yaw_joint)
+            # Body joints use lowercase (left_, right_, waist_, etc.)
+            body_qposadr = sorted([
+                int(addr) for name, addr in zip(act_joint_names, act_qposadr)
+                if not (name.startswith('L_') or name.startswith('R_'))
+            ])
+
+            if self.mj_scene.is_obj:
+                original_robot_nq = current_qpos_size - 7  # reference robot qpos (incl. freejoint)
+                n_ref_body = original_robot_nq - 7          # reference body-only joints
+
+                # Copy freejoint (always at [0:7])
+                padded_qpos[:, :7] = self._qpos[:, :7]
+                # Copy body joints to their tree-order positions in the target model
+                n_copy = min(n_ref_body, len(body_qposadr))
+                for i in range(n_copy):
+                    padded_qpos[:, body_qposadr[i]] = self._qpos[:, 7 + i]
+                # Copy object state to its correct address in the target model
+                padded_qpos[:, list(self.mj_scene.obj_qpos_adr)] = self._qpos[
+                    :, original_robot_nq:
+                ]
+            else:
+                padded_qpos[:, :current_qpos_size] = self._qpos
+
+            self._qpos = padded_qpos
         # Fix quaterion format
         if self.mj_scene.is_floating_base:
-            base_qpos = np.concatenate((
-                self.mj_scene.base_pos_adr,
-                self.mj_scene.base_quat_adr
-                ))
+            base_qpos = np.concatenate(
+                (self.mj_scene.base_pos_adr, self.mj_scene.base_quat_adr)
+            )
             if flip_quat_pos:
-                self._qpos[:, base_qpos] = flip_quat_pos_in_traj(self._qpos[:, base_qpos])
+                self._qpos[:, base_qpos] = flip_quat_pos_in_traj(
+                    self._qpos[:, base_qpos]
+                )
             if not quat_wxyz:
                 self._qpos[:, base_qpos] = quat_xyzw_to_wxyz(self._qpos[:, base_qpos])
 
@@ -120,12 +179,12 @@ class ReferenceMotion:
 
     def trim_traj(self, t0: float, t_end: float):
         """Trim trajectory so that new time starts at t0."""
-        if t0 <= 0 and t_end <=0:
+        if t0 <= 0 and t_end <= 0:
             return
-        
+
         if t_end <= t0:
             return
-        
+
         if t0 > 0:
             idx = np.searchsorted(self.time, t0)
             self._qpos = self._qpos[idx:]
@@ -153,33 +212,45 @@ class ReferenceMotion:
         qpos_dict_interp = {}
         for k, v in qpos_dict.items():
             is_quat = True if "rot" in k else False
-            qpos_dict_interp[k] = interpolate_trajectory(v, self.time, t_new, is_quat=is_quat)
-        
+            qpos_dict_interp[k] = interpolate_trajectory(
+                v, self.time, t_new, is_quat=is_quat
+            )
+
         self.time = t_new
         return qpos_dict_interp
 
-    def compute_velocities(self, qpos_dict: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+    def compute_velocities(
+        self, qpos_dict: Dict[str, np.ndarray]
+    ) -> Dict[str, np.ndarray]:
         """Compute velocities for root/dof/object segments."""
         out = {}
 
         # Root
         if KEY_ROOT_POS in qpos_dict:
-            out[KEY_ROOT_V] = finite_diff_qpos_traj_high_order(qpos_dict[KEY_ROOT_POS], self.dt)
+            out[KEY_ROOT_V] = finite_diff_qpos_traj_high_order(
+                qpos_dict[KEY_ROOT_POS], self.dt
+            )
             out[KEY_ROOT_W] = finite_diff_quat_traj(qpos_dict[KEY_ROOT_ROT], self.dt)
 
         # DOF
-        out[KEY_DOF_V] = finite_diff_qpos_traj_high_order(qpos_dict[KEY_DOF_POS], self.dt)
+        out[KEY_DOF_V] = finite_diff_qpos_traj_high_order(
+            qpos_dict[KEY_DOF_POS], self.dt
+        )
 
         # Object (optional)
         if KEY_OBJECT_POS in qpos_dict:
-            out[KEY_OBJECT_V] = finite_diff_qpos_traj_high_order(qpos_dict[KEY_OBJECT_POS], self.dt)
-            out[KEY_OBJECT_W] = finite_diff_quat_traj(qpos_dict[KEY_OBJECT_ROT], self.dt)
+            out[KEY_OBJECT_V] = finite_diff_qpos_traj_high_order(
+                qpos_dict[KEY_OBJECT_POS], self.dt
+            )
+            out[KEY_OBJECT_W] = finite_diff_quat_traj(
+                qpos_dict[KEY_OBJECT_ROT], self.dt
+            )
 
         return out
 
     def concatenate_full_state(self, qpos_dict, vel_dict) -> np.ndarray:
         all = []
-        for k in KEYS_QPOS :
+        for k in KEYS_QPOS:
             v = qpos_dict.get(k, None)
             if v is not None:
                 all.append(v)
@@ -194,7 +265,7 @@ class ReferenceMotion:
         Extracts sensor values for each timestep along the trajectory.
         The results are stored as attributes:
             self.<sensor_name>
-        
+
         Sensor trajectory shape:
             [T, sensor_dim]
         """
@@ -206,63 +277,75 @@ class ReferenceMotion:
             return mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SENSOR, sensor_name)
 
         sensor_name2adr = {
-            sensor_name : model.sensor_adr[get_sid(sensor_name)]
+            sensor_name: model.sensor_adr[get_sid(sensor_name)]
             for sensor_name in sensor_names
         }
         sensor_name2dim = {
-            sensor_name : model.sensor_dim[get_sid(sensor_name)]
+            sensor_name: model.sensor_dim[get_sid(sensor_name)]
             for sensor_name in sensor_names
         }
         self.sensor_data = {
-            sensor_name : np.empty((T, sensor_name2dim[sensor_name]))
+            sensor_name: np.empty((T, sensor_name2dim[sensor_name]))
             for sensor_name in sensor_names
         }
 
         for t in range(T):
-            data.qpos[:] =  self.x[t, :self.mj_scene.Nq]
-            data.qvel[:] =  self.x[t, self.mj_scene.Nq:]
+            data.qpos[:] = self.x[t, : self.mj_scene.Nq]
+            data.qvel[:] = self.x[t, self.mj_scene.Nq :]
             mujoco.mj_forward(model, data)
 
             for sensor_name in sensor_names:
                 adr = sensor_name2adr[sensor_name]
                 dim = sensor_name2dim[sensor_name]
-                self.sensor_data[sensor_name][t] = data.sensordata[adr:adr + dim]
+                self.sensor_data[sensor_name][t] = data.sensordata[adr : adr + dim]
 
     @property
-    def T(self): return len(self.time)
-    
-    @property
-    def x0(self): return self.x[0]
+    def T(self):
+        return len(self.time)
 
     @property
-    def root_rot(self): return self._qpos_dict.get(KEY_ROOT_ROT)
+    def x0(self):
+        return self.x[0]
 
     @property
-    def root_pos(self): return self._qpos_dict.get(KEY_ROOT_POS)
+    def root_rot(self):
+        return self._qpos_dict.get(KEY_ROOT_ROT)
 
     @property
-    def dof_pos(self): return self._qpos_dict[KEY_DOF_POS]
+    def root_pos(self):
+        return self._qpos_dict.get(KEY_ROOT_POS)
 
     @property
-    def object_pos(self): return self._qpos_dict.get(KEY_OBJECT_POS)
+    def dof_pos(self):
+        return self._qpos_dict[KEY_DOF_POS]
 
     @property
-    def object_rot(self): return self._qpos_dict.get(KEY_OBJECT_ROT)
+    def object_pos(self):
+        return self._qpos_dict.get(KEY_OBJECT_POS)
 
     @property
-    def root_v(self): return self._vel_dict.get(KEY_ROOT_V)
+    def object_rot(self):
+        return self._qpos_dict.get(KEY_OBJECT_ROT)
 
     @property
-    def root_w(self): return self._vel_dict.get(KEY_ROOT_W)
+    def root_v(self):
+        return self._vel_dict.get(KEY_ROOT_V)
 
     @property
-    def dof_v(self): return self._vel_dict[KEY_DOF_V]
+    def root_w(self):
+        return self._vel_dict.get(KEY_ROOT_W)
 
     @property
-    def object_v(self): return self._vel_dict.get(KEY_OBJECT_V)
+    def dof_v(self):
+        return self._vel_dict[KEY_DOF_V]
 
     @property
-    def object_w(self): return self._vel_dict.get(KEY_OBJECT_W)
+    def object_v(self):
+        return self._vel_dict.get(KEY_OBJECT_V)
+
+    @property
+    def object_w(self):
+        return self._vel_dict.get(KEY_OBJECT_W)
 
     @property
     def act_qpos(self):
@@ -271,7 +354,7 @@ class ReferenceMotion:
     @property
     def act_qpos0(self):
         return self.dof_pos[0]
-    
+
     @property
     def act_qpos_range(self):
         return self.act_qpos.min(axis=0), self.act_qpos.max(axis=0)

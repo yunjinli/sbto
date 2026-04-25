@@ -1,11 +1,5 @@
 <mujoco>
     <sensor>
-        <!-- wrist-level palm position and orientation (same as no-hands variant) -->
-        <framepos  name="left_hand_pos"         objtype="site" objname="left_palm"/>
-        <framequat name="left_hand_orientation" objtype="site" objname="left_palm"/>
-        <framepos  name="right_hand_pos"        objtype="site" objname="right_palm"/>
-        <framequat name="right_hand_orientation" objtype="site" objname="right_palm"/>
-
         <!-- left fingertip positions (world frame) -->
         <framepos name="L_thumb_tip_pos"  objtype="site" objname="L_thumb_tip"/>
         <framepos name="L_index_tip_pos"  objtype="site" objname="L_index_tip"/>

@@ -1,0 +1,104 @@
+<mujoco>
+
+  <contact>
+    <!-- ── Finger phalanges vs object ──────────────────────────────────────── -->
+    <!-- solref="0.01 1." matches the original robot_obj.xml hand-obj style     -->
+    <!-- (soft contacts, some penetration is accepted, consistent with pipeline) -->
+
+    <!-- left thumb -->
+    <pair name="L_thumb_base_obj"  geom1="L_thumb_base_col"  geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+    <pair name="L_thumb_prox_obj"  geom1="L_thumb_prox_col"  geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+    <pair name="L_thumb_inter_obj" geom1="L_thumb_inter_col" geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+    <pair name="L_thumb_dist_obj"  geom1="L_thumb_dist_col"  geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+
+    <!-- left index -->
+    <pair name="L_index_prox_obj"  geom1="L_index_prox_col"  geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+    <pair name="L_index_inter_obj" geom1="L_index_inter_col" geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+
+    <!-- left middle -->
+    <pair name="L_middle_prox_obj"  geom1="L_middle_prox_col"  geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+    <pair name="L_middle_inter_obj" geom1="L_middle_inter_col" geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+
+    <!-- left ring -->
+    <pair name="L_ring_prox_obj"  geom1="L_ring_prox_col"  geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+    <pair name="L_ring_inter_obj" geom1="L_ring_inter_col" geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+
+    <!-- left pinky -->
+    <pair name="L_pinky_prox_obj"  geom1="L_pinky_prox_col"  geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+    <pair name="L_pinky_inter_obj" geom1="L_pinky_inter_col" geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+
+    <!-- right thumb -->
+    <pair name="R_thumb_base_obj"  geom1="R_thumb_base_col"  geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+    <pair name="R_thumb_prox_obj"  geom1="R_thumb_prox_col"  geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+    <pair name="R_thumb_inter_obj" geom1="R_thumb_inter_col" geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+    <pair name="R_thumb_dist_obj"  geom1="R_thumb_dist_col"  geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+
+    <!-- right index -->
+    <pair name="R_index_prox_obj"  geom1="R_index_prox_col"  geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+    <pair name="R_index_inter_obj" geom1="R_index_inter_col" geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+
+    <!-- right middle -->
+    <pair name="R_middle_prox_obj"  geom1="R_middle_prox_col"  geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+    <pair name="R_middle_inter_obj" geom1="R_middle_inter_col" geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+
+    <!-- right ring -->
+    <pair name="R_ring_prox_obj"  geom1="R_ring_prox_col"  geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+    <pair name="R_ring_inter_obj" geom1="R_ring_inter_col" geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+
+    <!-- right pinky -->
+    <pair name="R_pinky_prox_obj"  geom1="R_pinky_prox_col"  geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+    <pair name="R_pinky_inter_obj" geom1="R_pinky_inter_col" geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
+
+    <!-- ── All finger phalanges vs floor ───────────────────────────────────── -->
+
+    <!-- left thumb -->
+    <pair name="L_thumb_base_floor"  geom1="L_thumb_base_col"  geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+    <pair name="L_thumb_prox_floor"  geom1="L_thumb_prox_col"  geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+    <pair name="L_thumb_inter_floor" geom1="L_thumb_inter_col" geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+    <pair name="L_thumb_dist_floor"  geom1="L_thumb_dist_col"  geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+
+    <!-- left index -->
+    <pair name="L_index_prox_floor"  geom1="L_index_prox_col"  geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+    <pair name="L_index_inter_floor" geom1="L_index_inter_col" geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+
+    <!-- left middle -->
+    <pair name="L_middle_prox_floor"  geom1="L_middle_prox_col"  geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+    <pair name="L_middle_inter_floor" geom1="L_middle_inter_col" geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+
+    <!-- left ring -->
+    <pair name="L_ring_prox_floor"  geom1="L_ring_prox_col"  geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+    <pair name="L_ring_inter_floor" geom1="L_ring_inter_col" geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+
+    <!-- left pinky -->
+    <pair name="L_pinky_prox_floor"  geom1="L_pinky_prox_col"  geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+    <pair name="L_pinky_inter_floor" geom1="L_pinky_inter_col" geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+
+    <!-- right thumb -->
+    <pair name="R_thumb_base_floor"  geom1="R_thumb_base_col"  geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+    <pair name="R_thumb_prox_floor"  geom1="R_thumb_prox_col"  geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+    <pair name="R_thumb_inter_floor" geom1="R_thumb_inter_col" geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+    <pair name="R_thumb_dist_floor"  geom1="R_thumb_dist_col"  geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+
+    <!-- right index -->
+    <pair name="R_index_prox_floor"  geom1="R_index_prox_col"  geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+    <pair name="R_index_inter_floor" geom1="R_index_inter_col" geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+
+    <!-- right middle -->
+    <pair name="R_middle_prox_floor"  geom1="R_middle_prox_col"  geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+    <pair name="R_middle_inter_floor" geom1="R_middle_inter_col" geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+
+    <!-- right ring -->
+    <pair name="R_ring_prox_floor"  geom1="R_ring_prox_col"  geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+    <pair name="R_ring_inter_floor" geom1="R_ring_inter_col" geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+
+    <!-- right pinky -->
+    <pair name="R_pinky_prox_floor"  geom1="R_pinky_prox_col"  geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+    <pair name="R_pinky_inter_floor" geom1="R_pinky_inter_col" geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+
+    <!-- ── Palm vs floor ─────────────────────────────────────────────────── -->
+    <pair name="left_hand_floor"  geom1="left_hand_collision"  geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+    <pair name="right_hand_floor" geom1="right_hand_collision" geom2="floor" condim="3" friction="0.8 0.005 0.0001"/>
+
+  </contact>
+
+</mujoco>
